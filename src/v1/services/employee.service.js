@@ -164,7 +164,7 @@ async function getEmployee(employeeId, tenantId) {
     { path: "tenantId" },
     {
       path: "lineManager",
-      select: "name email isOnLeave",
+      // select: ["firstname", "lastname", "surname", "email", "isOnLeave"],
     },
     {
       path: "levelId",
@@ -172,7 +172,7 @@ async function getEmployee(employeeId, tenantId) {
     },
     {
       path: "reliever",
-      select: "name email isOnLeave",
+      // select: ["firstname", "lastname", "surname", "email", "isOnLeave"],
     },
   ]);
 
@@ -315,6 +315,8 @@ async function employeeBulkInvite(file, tenantId) {
 // Update Profile
 async function updateEmployee(employeeId, tenantId, profileData = {}, files) {
   const { file, avatar } = files;
+
+  console.log(profileData);
 
   let fileData = null;
   let avatarUrl = null;

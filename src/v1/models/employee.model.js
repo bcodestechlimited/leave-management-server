@@ -13,6 +13,7 @@ const employeeSchema = new Schema(
     staffId: {
       type: String,
       default: "",
+      index: true,
     },
     firstname: {
       type: String,
@@ -22,6 +23,11 @@ const employeeSchema = new Schema(
     },
     surname: {
       type: String,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+      lowercase: true,
     },
     name: {
       type: String,
@@ -33,7 +39,6 @@ const employeeSchema = new Schema(
       type: String,
       required: true,
       lowercase: true,
-      unique: true,
       trim: true,
     },
     password: {
