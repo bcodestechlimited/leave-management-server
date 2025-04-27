@@ -7,6 +7,7 @@
     "start": "node app.js",
     "start:dev": "nodemon app.js",
     "fetch": "node src/scripts/fetchEmployees.js",
+    "copy": "node src/scripts/copyDB.js",
     "dev": "nodemon app.js",
     "test": "jest"
   },
@@ -25,6 +26,7 @@
     "express-validator": "^7.2.0",
     "handlebars": "^4.7.8",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.16.0",
     "mongoose": "^8.6.1",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
