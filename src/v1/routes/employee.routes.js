@@ -1,6 +1,7 @@
 import express from "express";
 import methodNotAllowed from "../../middlewares/methodNotAllowed.js";
 import {
+  addEmployeeValidator,
   bulkEmployeeInviteValidator,
   employeeForgotPasswordValidator,
   employeeInviteValidator,
@@ -19,6 +20,7 @@ import {
   employeeSignUp,
   getAuthEmployee,
   getEmployees,
+  InviteAndAddEmployee,
   sendInviteToEmployee,
   updateAuthEmployee,
   updateEmployee,
@@ -82,6 +84,12 @@ router
     sendInviteToEmployee
   )
   .put(tenantMiddleware, acceptInvite)
+  .all(methodNotAllowed);
+
+//Emergency Feature
+router
+  .route("/add")
+  .post(tenantMiddleware, isAuth, addEmployeeValidator, InviteAndAddEmployee)
   .all(methodNotAllowed);
 
 router

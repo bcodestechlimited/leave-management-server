@@ -56,6 +56,39 @@ export const employeeInviteValidator = [
   handleValidationErrors,
 ];
 
+export const addEmployeeValidator = [
+  body("email")
+    .exists()
+    .withMessage("email is required")
+    .isEmail()
+    .withMessage("Please provide a valid email address"),
+
+  body("firstname")
+    .exists()
+    .withMessage("firstname is required")
+    .isString()
+    .withMessage("firstname must be a string"),
+
+  body("middlename")
+    .optional()
+    .isString()
+    .withMessage("middlename must be a string"),
+
+  body("surname")
+    .exists()
+    .withMessage("surname is required")
+    .isString()
+    .withMessage("surname must be a string"),
+
+  body("accountType")
+    .exists()
+    .withMessage("accountType is required")
+    .isIn(["employee", "lineManager"])
+    .withMessage("accountType must be one of: employee, lineManager"),
+
+  handleValidationErrors,
+];
+
 export const employeeForgotPasswordValidator = [
   body("email")
     .exists()

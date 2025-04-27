@@ -25,6 +25,7 @@ const templatePaths = {
     templatesDir,
     "ClientLeaveRejection.html"
   ),
+  relieverRequestEmail: path.join(templatesDir, "RelieverRequest.html"),
 };
 
 const templates = Object.fromEntries(
@@ -142,11 +143,11 @@ async function sendWelcomeEmailToTenant({
 
 // Leaves
 async function sendLeaveRequestEmail({
-  email,
   tenantName,
   color = "#000000",
   logo,
   lineManagerName,
+  lineManagerEmail,
   employeeName,
   startDate,
   resumptionDate,
@@ -178,7 +179,53 @@ async function sendLeaveRequestEmail({
       date,
     });
 
-    return sendEmail({ to: email, subject, text: emailText, html });
+    return sendEmail({ to: lineManagerEmail, subject, text: emailText, html });
+  } catch (error) {
+    console.error("Error sending tenant email:", error);
+    throw error;
+  }
+}
+async function sendLeaveRequestEmailToReliever({
+  tenantName,
+  color = "#000000",
+  logo,
+  lineManagerName,
+  employeeName,
+  relieverName,
+  relieverEmail,
+  startDate,
+  resumptionDate,
+  leaveReason,
+  leaveRequestUrl,
+  date = new Date().getFullYear(),
+}) {
+  try {
+    const subject = "Leave Request";
+
+    const emailText = `
+      Hello ${relieverName},\n\n
+      ${employeeName} who is relieving his duties to you has requested to go on leave from ${startDate} to ${resumptionDate} for the following reason:\n\n
+      Reason: ${leaveReason}\n\n
+    `;
+
+    const html = templates.relieverRequestEmail({
+      tenantName,
+      color,
+      logo,
+      lineManagerName,
+      employeeName,
+      relieverName,
+      relieverEmail,
+      startDate: formatDate(startDate),
+      resumptionDate: formatDate(resumptionDate),
+      leaveReason,
+      leaveRequestUrl,
+      date,
+    });
+
+    console.log(`Reliever Email: ${relieverEmail}`);
+
+    return sendEmail({ to: relieverEmail, subject, text: emailText, html });
   } catch (error) {
     console.error("Error sending tenant email:", error);
     throw error;
@@ -317,7 +364,6 @@ async function sendClientLeaveRequestEmail({
       date,
     });
 
-
     return sendEmail({ to: tenantEmail, subject, text: emailText, html });
   } catch (error) {
     console.error("Error sending client leave request email:", error);
@@ -363,7 +409,6 @@ async function sendClientLeaveRejectionEmail({
       leaveRequestUrl,
       date,
     });
-
 
     return sendEmail({ to: employeeEmail, subject, text: emailText, html });
   } catch (error) {
@@ -419,4 +464,5 @@ export default {
   sendLeaveRejectionEmail,
   sendClientLeaveRequestEmail,
   sendClientLeaveRejectionEmail,
+  sendLeaveRequestEmailToReliever,
 };

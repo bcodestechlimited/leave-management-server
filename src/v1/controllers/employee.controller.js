@@ -104,6 +104,31 @@ export const employeeBulkInvite = asyncWrapper(async (req, res, next) => {
   res.status(201).json(result);
 });
 
+export const InviteAndAddEmployee = asyncWrapper(async (req, res, next) => {
+  const inviteData = req.body;
+  const { employeeId } = req.employee;
+  const { tenantId } = req.tenant;
+  const result = await employeeService.InviteAndAddEmployee(
+    inviteData,
+    employeeId,
+    tenantId
+  );
+  res.status(201).json(result);
+});
+
+export const addLineManager = asyncWrapper(async (req, res, next) => {
+  const body = req.body;
+  const { tenantId } = req.tenant;
+  const result = await employeeService.addLineManager(body, tenantId);
+  res.status(201).json(result);
+});
+
+export const deleteLineManager = asyncWrapper(async (req, res, next) => {
+  const { tenantId } = req.tenant;
+  const { employeeId } = req.params;
+  const result = await employeeService.deleteLineManager(employeeId, tenantId);
+  res.status(201).json(result);
+});
 //Admins
 
 export default {

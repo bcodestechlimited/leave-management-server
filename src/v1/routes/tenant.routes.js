@@ -18,8 +18,13 @@ import {
   tenantUpdateValidator,
 } from "../validators/tenant.validator.js";
 import { isAuth, isTenantAdmin } from "../../middlewares/auth.js";
-import { employeeProfileUpdateValidator } from "../validators/employee.validator.js";
 import {
+  addEmployeeValidator,
+  employeeProfileUpdateValidator,
+} from "../validators/employee.validator.js";
+import {
+  addLineManager,
+  deleteLineManager,
   getEmployee,
   getEmployees,
   updateEmployee,
@@ -82,6 +87,28 @@ router
     employeeProfileUpdateValidator,
     validateMongoIdParam("employeeId"),
     updateEmployee
+  )
+  .all(methodNotAllowed);
+
+router
+  .route("/line-manager")
+  .post(
+    tenantMiddleware,
+    isAuth,
+    isTenantAdmin,
+    addEmployeeValidator,
+    addLineManager
+  )
+  .all(methodNotAllowed);
+
+router
+  .route("/line-manager/:employeeId")
+  .delete(
+    tenantMiddleware,
+    isAuth,
+    isTenantAdmin,
+    validateMongoIdParam("employeeId"),
+    deleteLineManager
   )
   .all(methodNotAllowed);
 

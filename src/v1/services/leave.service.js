@@ -50,15 +50,26 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
     },
     {
       path: "lineManager",
-      select: ["name", "isOnLeave", "reliever"],
-      populate: {
-        path: "reliever",
-        select: ["name", "isOnLeave"],
-      },
+      select: [
+        "name",
+        "firstname",
+        "middlename",
+        "surname",
+        "email",
+        "isOnLeave",
+        "reliever",
+      ],
     },
     {
       path: "reliever",
-      select: ["name", "isOnLeave"],
+      select: [
+        "name",
+        "firstname",
+        "middlename",
+        "surname",
+        "email",
+        "isOnLeave",
+      ],
     },
   ]);
 
@@ -78,13 +89,8 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
     throw ApiError.badRequest("Your reliever is on leave");
   }
 
-  if (
-    employee?.lineManager?.isOnLeave &&
-    employee?.lineManager?.reliever?.isOnLeave
-  ) {
-    throw ApiError.badRequest(
-      "Your line manager and thier reliever is currently on leave"
-    );
+  if (employee?.lineManager?.isOnLeave) {
+    throw ApiError.badRequest("Your line manager is on leave");
   }
 
   let lineManagerId = "";
@@ -117,11 +123,16 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
   await leaveRequest.populate([
     {
       path: "lineManager",
-      select: ["name", "email"],
+      select: ["name", "firstname", "middlename", "surname", "email"],
+    },
+    {
+      path: "employee",
+      select: ["name", "firstname", "middlename", "surname", "email"],
     },
   ]);
 
-  console.log(leaveRequest);
+  console.log({ leaveRequest });
+  console.log({ employee });
 
   // Send mail to the line manager
   const emailObject = createEmailObject(leaveRequest, employee);
@@ -130,7 +141,10 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
 
   try {
     await emailUtils.sendLeaveRequestEmail(emailObject);
-  } catch {}
+    await emailUtils.sendLeaveRequestEmailToReliever(emailObject);
+  } catch (error) {
+    console.log(error);
+  }
 
   return ApiSuccess.created(
     "Leave request submitted successfully",
@@ -180,11 +194,9 @@ async function getLeaveRequests(query = {}, tenantId) {
   const populateOptions = [
     {
       path: "employee",
-      select: "name email",
     },
     {
       path: "lineManager",
-      select: "name email",
     },
   ];
 
@@ -212,7 +224,6 @@ async function getSingleLeaveRequest(leaveId, tenantId) {
   const populateOptions = [
     {
       path: "employee",
-      select: "name email",
     },
     {
       path: "leaveType",
@@ -220,7 +231,6 @@ async function getSingleLeaveRequest(leaveId, tenantId) {
     },
     {
       path: "lineManager",
-      select: "name email",
     },
   ];
 
@@ -634,14 +644,17 @@ async function getLeaveBalance(employeeId, tenantId) {
 
 function createEmailObject(leaveRequest, employee) {
   return {
-    lineManagerName: employee.lineManager?.name,
+    lineManagerName: employee.lineManager?.firstname,
+    lineManagerEmail: employee.lineManager?.email,
+    employeeName: employee.firstname,
+    employeeEmail: leaveRequest?.employee?.email,
+    relieverName: employee.reliever?.firstname,
+    relieverEmail: employee.reliever?.email,
     email: leaveRequest.lineManager?.email,
     tenantName: employee.tenantId?.name,
     tenantEmail: employee.tenantId?.email,
     color: employee.tenantId?.color,
     logo: employee.tenantId?.logo,
-    employeeName: employee.name,
-    employeeEmail: leaveRequest?.employee?.email,
     startDate: leaveRequest.startDate,
     resumptionDate: leaveRequest.resumptionDate,
     leaveReason: leaveRequest.reason,

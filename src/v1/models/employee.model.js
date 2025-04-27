@@ -12,7 +12,7 @@ const employeeSchema = new Schema(
     },
     staffId: {
       type: String,
-      default: "",
+      default: null,
       index: true,
     },
     firstname: {
@@ -28,6 +28,11 @@ const employeeSchema = new Schema(
       type: String,
       enum: ["male", "female"],
       lowercase: true,
+    },
+    accountType: {
+      type: String,
+      enum: ["employee", "lineManager"],
+      default: "employee",
     },
     name: {
       type: String,
@@ -168,17 +173,31 @@ employeeSchema.pre("save", async function (next) {
 employeeSchema.pre("findOneAndUpdate", async function (next) {
   // if (!this.isModified("levelId") || !this.levelId) return next();
   const update = this.getUpdate();
+  // console.log({ update });
+  // console.log(!update);
+  // console.log(!update.levelId);
+
   if (!update || !update.levelId) return next();
+
 
   try {
     const employee = await this.model.findOne(this.getQuery());
 
-    if (
-      employee &&
-      employee?.levelId != null &&
-      employee?.levelId?.toString() !== update.levelId.toString()
-    ) {
-      await updateLeaveBalances(employee, update.levelId.toString());
+    // console.log({
+    //   employee,
+    //   levelId: update?.levelId,
+    //   updateLevelId: update.levelId,
+    //   isSame: employee?.levelId?.toString() === update.levelId.toString(),
+    // });
+
+    if (employee) {
+      if (update?.levelId != null) {
+        const levelIdString = update.levelId.toString();
+        await updateLeaveBalances(employee, levelIdString);
+
+        next();
+      }
+      // await updateLeaveBalances(employee, update.levelId.toString());
     }
     next();
   } catch (error) {
@@ -189,9 +208,17 @@ employeeSchema.pre("findOneAndUpdate", async function (next) {
 
 // Function to update leave balances for an employee
 async function updateLeaveBalances(employee, newLevelId = employee.levelId) {
+  if (newLevelId === null || newLevelId === employee.levelId) {
+    console.log(
+      `No change in levelId for employee, Employee levelId: ${employee.levelId} newLevelId: ${newLevelId}`
+    );
+    return;
+  }
+
   const newLevel = await Level.findById(newLevelId).populate("leaveTypes");
   if (!newLevel) {
-    throw new Error("Invalid levelId");
+    console.log("No level found for levelId:", newLevelId);
+    return;
   }
 
   const newLevelLeaves = newLevel.leaveTypes || [];
@@ -206,6 +233,8 @@ async function updateLeaveBalances(employee, newLevelId = employee.levelId) {
     leaveTypeId: leave._id,
     balance: leave.defaultBalance,
   }));
+
+  console.log(`-------Level Updated-----------`);
 
   await EmployeeLeaveBalance.insertMany(newLeaveBalances);
 }

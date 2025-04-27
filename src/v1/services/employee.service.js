@@ -192,12 +192,27 @@ async function getEmployee(employeeId, tenantId) {
 }
 
 async function getEmployees(query = {}, tenantId, employeeId = null) {
-  const { page = 1, limit = 10, search, sort = { createdAt: -1 } } = query;
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    sort = { createdAt: -1 },
+    accountType,
+  } = query;
+
   const filter = { tenantId };
+
+  if (accountType) {
+    filter.accountType = accountType;
+  }
 
   if (search) {
     filter.$or = [
+      { staffId: { $regex: search, $options: "i" } },
       { name: { $regex: search, $options: "i" } },
+      { firstname: { $regex: search, $options: "i" } },
+      { middlename: { $regex: search, $options: "i" } },
+      { surname: { $regex: search, $options: "i" } },
       { email: { $regex: search, $options: "i" } },
     ];
   }
@@ -224,6 +239,8 @@ async function getEmployees(query = {}, tenantId, employeeId = null) {
     populateOptions,
     excludeById,
   });
+
+  console.log(pagination);
 
   const stats = await Employee.getEmployeeStats();
 
@@ -315,8 +332,6 @@ async function employeeBulkInvite(file, tenantId) {
 // Update Profile
 async function updateEmployee(employeeId, tenantId, profileData = {}, files) {
   const { file, avatar } = files;
-
-  console.log(profileData);
 
   let fileData = null;
   let avatarUrl = null;
@@ -449,6 +464,143 @@ async function resetPassword(token, newPassword) {
   return ApiSuccess.ok("Password has been reset successfully");
 }
 
+async function InviteAndAddEmployee(InviteData = {}, employeeId, tenantId) {
+  const { email, firstname, middlename, surname, accountType } = InviteData;
+
+  const employee = await Employee.findOne({ email, tenantId });
+  if (employee) {
+    throw ApiError.badRequest("Employee with this email already exists");
+  }
+
+  const currentEmployee = await Employee.findOne({
+    _id: employeeId,
+    tenantId,
+  });
+
+  const fullname = [currentEmployee.firstname, currentEmployee.surname]
+    .filter(Boolean)
+    .join(" ");
+
+  const { data } = await tenantService.getTenant(tenantId);
+  const tenant = data?.tenant;
+
+  const plainPassword = crypto.randomBytes(8).toString("hex"); // 8 characters
+  const hashedPassword = await hashPassword(plainPassword);
+
+  // Create a new employee
+  const newEmployee = new Employee({
+    email,
+    firstname,
+    middlename: middlename ? middlename : "",
+    surname,
+    accountType,
+    tenantId,
+    password: hashedPassword,
+    isEmailVerified: true,
+  });
+
+  const inviteUrl = `${process.env.FRONTEND_URL}/login`;
+  const mailOptions = {
+    from: process.env.ADMIN_EMAIL,
+    to: email,
+    subject: `Invite to ${tenant.name} Leave Board`,
+    text: `Hello, you have been invited to join ${tenant.name} leave board by ${fullname}. Your temporary password is: ${plainPassword}. Click on the following link to login to your account: ${inviteUrl}`,
+    html: `
+      <p>Hi, ${newEmployee.firstname}</p>
+      <p>You have been invited to join <strong>${tenant.name}</strong> leave board.</p>
+      <p>Your temporary password is: <strong>${plainPassword}</strong></p>
+      <p>Click on the following link to login in</p>
+      <a href="${inviteUrl}">Go To Leave Board</a>
+    `,
+  };
+
+  try {
+    await emailUtils.sendEmail(mailOptions);
+    await newEmployee.save();
+    return ApiSuccess.ok(`User added successfully`);
+  } catch (error) {
+    console.log(error);
+    return ApiError.internalServerError(`Error inviting ${email}`);
+  }
+}
+
+async function addLineManager(payload = {}, tenantId) {
+  const { email, firstname, middlename, surname, accountType } = payload;
+
+  const employee = await Employee.findOne({ email, tenantId });
+  if (employee) {
+    throw ApiError.badRequest("Employee with this email already exists");
+  }
+
+  const { data } = await tenantService.getTenant(tenantId);
+  const tenant = data?.tenant;
+
+  const plainPassword = crypto.randomBytes(8).toString("hex"); // 8 characters
+  const hashedPassword = await hashPassword(plainPassword);
+
+  // Create a new employee
+  const newEmployee = new Employee({
+    email,
+    firstname,
+    middlename: middlename ? middlename : "",
+    surname,
+    accountType,
+    tenantId,
+    password: hashedPassword,
+    isEmailVerified: true,
+  });
+
+  const inviteUrl = `${process.env.FRONTEND_URL}/login`;
+  const mailOptions = {
+    from: process.env.ADMIN_EMAIL,
+    to: email,
+    subject: `Invite to ${tenant.name} Leave Board`,
+    text: `Hello, you have been invited to join ${tenant.name} leave board. Your temporary password is: ${plainPassword}. Click on the following link to login to your account: ${inviteUrl}`,
+    html: `
+      <p>Hi, ${newEmployee.firstname}</p>
+      <p>You have been invited to join <strong>${tenant.name}</strong> leave board.</p>
+      <p>Your temporary password is: <strong>${plainPassword}</strong></p>
+      <p>Click on the following link to login in</p>
+      <a href="${inviteUrl}">Go To Leave Board</a>
+    `,
+  };
+
+  try {
+    await emailUtils.sendEmail(mailOptions);
+    await newEmployee.save();
+    return ApiSuccess.ok(`User added successfully`);
+  } catch (error) {
+    console.log(error);
+    return ApiError.internalServerError(`Error adding ${email}`);
+  }
+}
+
+async function deleteLineManager(employeeId, tenantId) {
+  // 1. Find the employee
+  const employee = await Employee.findOne({ _id: employeeId, tenantId });
+  if (!employee) {
+    throw ApiError.notFound("Employee not found");
+  }
+
+  // 2. Remove the employee as lineManager or reliever from other employees
+  await Employee.updateMany(
+    { lineManager: employeeId, tenantId },
+    { $unset: { lineManager: "" } }
+  );
+
+  await Employee.updateMany(
+    { reliever: employeeId, tenantId },
+    { $unset: { reliever: "" } }
+  );
+
+  // 3. Finally delete the employee
+  await Employee.deleteOne({ _id: employeeId, tenantId });
+
+  return ApiSuccess.ok(
+    "Employee deleted successfully and removed as Line Manager/Reliever from others"
+  );
+}
+
 export default {
   getEmployee,
   updateEmployee,
@@ -459,5 +611,8 @@ export default {
   sendInviteToEmployee,
   acceptInvite,
   employeeBulkInvite,
+  InviteAndAddEmployee,
+  addLineManager,
+  deleteLineManager,
   // makeEmployeeAdmin,
 };
