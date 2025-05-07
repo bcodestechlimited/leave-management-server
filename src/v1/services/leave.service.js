@@ -405,6 +405,7 @@ async function updateLeaveRequestByClientAdmin(
       const emailObject = createEmailObject(leaveRequest, employee);
       console.log({ emailObject });
       await emailUtils.sendLeaveApprovalEmail(emailObject);
+      await emailUtils.sendLeaveApprovalEmailToLineManager(emailObject);
     } catch (error) {
       console.error(
         "Failed to send second approval email to client admin:",

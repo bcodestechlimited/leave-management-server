@@ -371,11 +371,11 @@ async function updateEmployee(employeeId, tenantId, profileData = {}, files) {
   ).populate([
     {
       path: "lineManager",
-      select: "name",
+      // select: "name",
     },
     {
       path: "reliever",
-      select: "name",
+      // select: "name",
     },
     {
       path: "tenantId",

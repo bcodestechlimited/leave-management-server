@@ -26,6 +26,10 @@ const templatePaths = {
     "ClientLeaveRejection.html"
   ),
   relieverRequestEmail: path.join(templatesDir, "RelieverRequest.html"),
+  lineMangerFinalApproval: path.join(
+    templatesDir,
+    "LineManagerLeaveApproval.html"
+  ),
 };
 
 const templates = Object.fromEntries(
@@ -275,6 +279,50 @@ async function sendLeaveApprovalEmail({
     throw error;
   }
 }
+async function sendLeaveApprovalEmailToLineManager({
+  email,
+  tenantName,
+  color = "#000000",
+  logo,
+  lineManagerName,
+  lineManagerEmail,
+  employeeName,
+  employeeEmail,
+  startDate,
+  resumptionDate,
+  leaveReason,
+  leaveRequestUrl,
+  date = new Date().getFullYear(),
+}) {
+  try {
+    const subject = "Leave Request Approved";
+
+    const emailText = `
+      Hello ${lineManagerName},\n\n
+      ${employeeName} who requested to go on leave from ${startDate} to ${resumptionDate} has gotten their second and final approval:\n\n
+      Click the link below to view leave details:\n
+      ${leaveRequestUrl}
+    `;
+
+    const html = templates.lineMangerFinalApproval({
+      tenantName,
+      color,
+      logo,
+      lineManagerName,
+      employeeName,
+      startDate: formatDate(startDate),
+      resumptionDate: formatDate(resumptionDate),
+      leaveReason,
+      leaveRequestUrl,
+      date,
+    });
+
+    return sendEmail({ to: lineManagerEmail, subject, text: emailText, html });
+  } catch (error) {
+    console.error("Error sending tenant email:", error);
+    throw error;
+  }
+}
 
 async function sendLeaveRejectionEmail({
   email,
@@ -465,4 +513,5 @@ export default {
   sendClientLeaveRequestEmail,
   sendClientLeaveRejectionEmail,
   sendLeaveRequestEmailToReliever,
+  sendLeaveApprovalEmailToLineManager,
 };
