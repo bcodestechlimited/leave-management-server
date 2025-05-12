@@ -109,6 +109,14 @@ const leaveHistorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    balanceBeforeLeave: {
+      type: Number,
+      default: 0,
+    },
+    remainingDays: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

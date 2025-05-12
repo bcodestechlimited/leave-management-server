@@ -29,6 +29,7 @@ import {
   getEmployees,
   updateEmployee,
 } from "../controllers/employee.controller.js";
+import { generateMonthlyLeaveReports } from "../controllers/leave.controller.js";
 
 const router = express.Router();
 
@@ -110,6 +111,11 @@ router
     validateMongoIdParam("employeeId"),
     deleteLineManager
   )
+  .all(methodNotAllowed);
+
+router
+  .route("/leave-report")
+  .get(tenantMiddleware, isAuth, isTenantAdmin, generateMonthlyLeaveReports)
   .all(methodNotAllowed);
 
 //Public

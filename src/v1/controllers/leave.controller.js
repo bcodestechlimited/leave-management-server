@@ -134,3 +134,18 @@ export const getLeaveBalance = asyncWrapper(async (req, res, next) => {
   const result = await leaveService.getLeaveBalance(employeeId, tenantId);
   res.status(200).json(result);
 });
+
+export const generateMonthlyLeaveReports = asyncWrapper(
+  async (req, res, next) => {
+    const { tenantId } = req.tenant;
+    const query = req.query;
+    const result = await leaveService.getMonthlyLeaveReport(tenantId, query);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=leave-report.pdf"
+    );
+    res.send(result);
+    // res.status(200).json(result);
+  }
+);

@@ -59,6 +59,9 @@ const employeeSchema = new Schema(
     jobRole: {
       type: String,
     },
+    branch: {
+      type: String,
+    },
     documents: [
       {
         _id: {
@@ -178,7 +181,6 @@ employeeSchema.pre("findOneAndUpdate", async function (next) {
   // console.log(!update.levelId);
 
   if (!update || !update.levelId) return next();
-
 
   try {
     const employee = await this.model.findOne(this.getQuery());

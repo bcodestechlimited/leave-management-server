@@ -146,7 +146,11 @@ export const bulkEmployeeInviteValidator = [
 
 export const employeeProfileUpdateValidator = [
   body("name").optional().isString().withMessage("Name must be a string."),
-  body("jobRole").optional().isString().withMessage("Role must be a string."),
+  body("jobRole")
+    .optional()
+    .isString()
+    .withMessage("Job role must be a string."),
+  body("branch").optional().isString().withMessage("branch must be a string."),
   body("lineManager")
     .optional()
     .isMongoId()

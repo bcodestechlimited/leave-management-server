@@ -11,6 +11,7 @@ import levelService from "./level.service.js";
 import mongoose from "mongoose";
 import emailUtils from "../../utils/emailUtils.js";
 import frontendURLs from "../../utils/frontendURLs.js";
+import ExcelJS from "exceljs";
 
 //Request For Leave
 async function requestLeave(leaveData = {}, employeeId, tenantId) {
@@ -400,6 +401,14 @@ async function updateLeaveRequestByClientAdmin(
     // const leaveEmployee = await Employee.findById(leaveRequest.employee._id);
     // leaveEmployee.isOnLeave = true;
     // await leaveEmployee.save();
+    const leaveBalance = await EmployeeLeaveBalance.findOne({
+      employeeId: leaveRequest.employee,
+      tenantId: tenantId,
+    });
+
+    leaveRequest.remainingDays = leaveBalance.balance;
+    leaveRequest.balanceBeforeLeave =
+      leaveBalance.balance + leaveRequest.duration;
 
     try {
       const emailObject = createEmailObject(leaveRequest, employee);
@@ -643,6 +652,115 @@ async function getLeaveBalance(employeeId, tenantId) {
   });
 }
 
+//Reports
+async function getMonthlyLeaveReport(tenantId, query = {}) {
+  const { startDate, endDate } = query;
+
+  if (!tenantId) {
+    throw ApiError.badRequest("TenantId not provided.");
+  }
+
+  const leaveRequests = await LeaveHistory.find({
+    tenantId,
+    createdAt: {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate),
+    },
+    status: { $in: ["approved", "rejected"] },
+  })
+    .populate([
+      {
+        path: "employee",
+        select: "staffId firstname middlename surname branch jobRole levelId",
+        populate: {
+          path: "reliever",
+          select: "staffId firstname middlename surname branch jobRole levelId",
+        },
+      },
+      {
+        path: "lineManager",
+      },
+      {
+        path: "leaveType",
+      },
+    ])
+    .sort({ createdAt: -1 });
+
+  // ["employee", "lineManager", "leaveType"]
+
+  // Create a new workbook and worksheet
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Monthly Leave Report");
+
+  // Define columns
+  worksheet.columns = [
+    { header: "S/N", key: "sn", width: 5 },
+    { header: "STAFF NO", key: "staffNo", width: 15 },
+    { header: "NAME", key: "name", width: 25 },
+    { header: "BRANCH", key: "branch", width: 15 },
+    { header: "TYPE OF LEAVE", key: "leaveType", width: 20 },
+    { header: "DESIGNATION", key: "designation", width: 20 },
+    { header: "START DATE", key: "startDate", width: 15 },
+    { header: "END DATE", key: "endDate", width: 15 },
+    { header: "RESUMPTION DATE", key: "resumptionDate", width: 18 },
+    { header: "DURATION", key: "duration", width: 10 },
+    { header: "REM DAYS", key: "remDays", width: 10 },
+    { header: "RELIEVER", key: "reliever", width: 25 },
+    { header: "REJECTION REASON", key: "rejectionReason", width: 25 },
+  ];
+
+  // Add rows
+  for (const [index, leave] of leaveRequests.entries()) {
+    const employee = leave.employee || {};
+    const leaveType = leave.leaveType || {};
+
+    // Fetch leave balance
+    // const leaveBalanceDoc = await EmployeeLeaveBalance.findOne({
+    //   tenantId,
+    //   employeeId: employee._id,
+    //   leaveTypeId: leaveType._id,
+    // }).populate("leaveTypeId");
+
+    // console.log({ leaveBalanceDoc });
+
+    // const remainingDays = leaveBalanceDoc ? leaveBalanceDoc.balance : "N/A";
+    const enddate = leave.resumptionDate
+      ? new Date(leave.resumptionDate.getTime() - 1000 * 60 * 60 * 24)
+          .toISOString()
+          .split("T")[0]
+      : "";
+
+    // console.log({ employee });
+
+    worksheet.addRow({
+      sn: index + 1,
+      staffNo: employee.staffId || "",
+      name: `${employee.firstname || ""} ${employee.middlename || ""} ${
+        employee.surname || ""
+      }`,
+      branch: employee?.branch || "",
+      leaveType: leaveType?.name || "",
+      designation: employee.jobRole || "",
+      startDate: leave.startDate?.toISOString().split("T")[0] || "",
+      endDate: enddate,
+      resumptionDate: leave.resumptionDate?.toISOString().split("T")[0] || "",
+      duration: leave.duration || 0,
+      remDays: leave.remainingDays || 0,
+      reliever: `${employee.reliever.firstname || ""} ${
+        employee.reliever.middlename || ""
+      } ${employee.reliever.surname || ""}`,
+      rejectionReason: leave.rejectionReason || "",
+    });
+  }
+
+  // Return file buffer (for API download or saving to disk)
+  const buffer = await workbook.xlsx.writeBuffer();
+  console.log({ buffer });
+  return buffer;
+
+  return ApiSuccess.ok("Leave balance retrieved successfully");
+}
+
 function createEmailObject(leaveRequest, employee) {
   return {
     lineManagerName: employee.lineManager?.firstname,
@@ -678,4 +796,5 @@ export default {
   deleteLeaveRequest,
   getLeaveBalance,
   updateLeaveRequestByClientAdmin,
+  getMonthlyLeaveReport,
 };
