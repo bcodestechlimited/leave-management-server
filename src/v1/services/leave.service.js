@@ -96,7 +96,6 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
 
   let lineManagerId = "";
 
-  // console.log(employee);
 
   if (employee?.lineManager?.isOnLeave) {
     lineManagerId = employee.reliever._id;
@@ -131,9 +130,6 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
       select: ["name", "firstname", "middlename", "surname", "email"],
     },
   ]);
-
-  console.log({ leaveRequest });
-  console.log({ employee });
 
   // Send mail to the line manager
   const emailObject = createEmailObject(leaveRequest, employee);
@@ -612,6 +608,18 @@ async function getLeaveBalance(employeeId, tenantId) {
     throw ApiError.badRequest("Invalid tenantId provided.");
   }
 
+  const employee = await Employee.findOne({
+    _id: employeeId,
+    tenantId,
+  });
+
+  if (!employee) {
+    throw ApiError.notFound("Employee not found");
+  }
+
+  const gender = employee.gender?.toLowerCase();
+  const isMale = gender === "male";
+
   const leaveBalances = await EmployeeLeaveBalance.aggregate([
     {
       $match: {
@@ -646,9 +654,18 @@ async function getLeaveBalance(employeeId, tenantId) {
     },
   ]);
 
+  const filteredLeaveBalances = leaveBalances.filter((leaveBalance) => {
+    const leaveTypeName = leaveBalance.leaveTypeDetails.name;
+    if (isMale) {
+      return !leaveTypeName.toLowerCase().includes("maternity");
+    } else {
+      return !leaveTypeName.toLowerCase().includes("paternity");
+    }
+  });
+
   // Return empty array if no balances are found
   return ApiSuccess.ok("Leave balance retrieved successfully", {
-    leaveBalance: leaveBalances.length > 0 ? leaveBalances : [],
+    leaveBalance: filteredLeaveBalances.length > 0 ? filteredLeaveBalances : [],
   });
 }
 
