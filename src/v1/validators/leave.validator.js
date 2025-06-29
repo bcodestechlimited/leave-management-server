@@ -1,6 +1,7 @@
 import { body } from "express-validator";
 import { handleValidationErrors } from "../../middlewares/error.js";
 import ApiError from "../../utils/apiError.js";
+import asyncWrapper from "../../middlewares/asyncWrapper.js";
 
 // Validator for adding a new Leave Type
 export const leaveTypeValidator = [
@@ -57,6 +58,44 @@ export const leaveTypeUpdateValidator = [
   handleValidationErrors,
 ];
 
+const validateDocument = asyncWrapper((req, res, next) => {
+  if (!req.files) {
+    console.log("No file uploaded for leave");
+    return next();
+  }
+
+  const { document } = req.files;
+
+  // Check if a document was uploaded
+  if (!document) {
+    throw ApiError.unprocessableEntity("No document uploaded");
+  }
+
+  const allowedFileTypes = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+  ];
+
+  if (!allowedFileTypes.includes(document.mimetype)) {
+    throw ApiError.unprocessableEntity(
+      `Invalid file type. Allowed types are: ${allowedFileTypes.join(", ")}`
+    );
+  }
+
+  const maxSize = 5 * 1024 * 1024; // 5 MB
+  if (document.size > maxSize) {
+    throw ApiError.unprocessableEntity(
+      `File size exceeds the maximum allowed limit of ${
+        maxSize / 1024 / 1024
+      } MB.`
+    );
+  }
+
+  next(); // Proceed to the next middleware
+});
+
 // Validator for requesting a new leave
 export const leaveRequestValidator = [
   body("leaveTypeId")
@@ -100,6 +139,8 @@ export const leaveRequestValidator = [
     .withMessage("description must be a string"),
 
   handleValidationErrors,
+
+  validateDocument,
 ];
 
 // Validator for updating a leave request (approve, reject, etc.)

@@ -392,7 +392,8 @@ async function sendClientLeaveRequestEmail({
 
     const emailText = `
       Hello there,\n\n
-      ${employeeName} has requested leave from ${startDate} to ${resumptionDate} for the following reason:\n\n
+      ${employeeName} has requested leave from ${startDate} to ${resumptionDate} and has gotten one confirmation from their line 
+      manager ${lineManagerName} for the following reason:\n\n
       Reason: ${leaveReason}\n\n
       Click the link below to view leave details:\n
       ${leaveRequestUrl}
@@ -412,7 +413,13 @@ async function sendClientLeaveRequestEmail({
       date,
     });
 
-    return sendEmail({ to: tenantEmail, subject, text: emailText, html });
+    // return sendEmail({ to: tenantEmail, subject, text: emailText, html });
+    return sendEmail({
+      to: "leave@icsoutsourcing.com",
+      subject,
+      text: emailText,
+      html,
+    });
   } catch (error) {
     console.error("Error sending client leave request email:", error);
     throw error;
@@ -438,7 +445,7 @@ async function sendClientLeaveRejectionEmail({
     const subject = "Leave Request";
 
     const emailText = `
-    Hello ${lineManagerName},\n\n
+    Hello ${employeeName},\n\n
     we regret to inform you that your leave request from ${startDate} to ${resumptionDate} has been been rejected:\n\n
     Click the link below to view leave details:\n
     ${leaveRequestUrl}

@@ -122,8 +122,9 @@ employeeSchema.methods.getLeaveBalances = async function (
   employeeId,
   tenantId
 ) {
+
   try {
-    return EmployeeLeaveBalance.aggregate([
+    const leaveBalances = await EmployeeLeaveBalance.aggregate([
       {
         $match: {
           employeeId: mongoose.Types.ObjectId.createFromHexString(employeeId),
@@ -154,6 +155,22 @@ employeeSchema.methods.getLeaveBalances = async function (
         },
       },
     ]);
+
+    console.log({ leaveBalances: leaveBalances[0].leaveTypeDetails });
+
+    return (
+      leaveBalances?.filter(
+        (leaveBalance) =>
+          (this.gender === "female" &&
+            !leaveBalance.leaveTypeDetails.name
+              .toLowerCase()
+              .includes("paternity")) ||
+          (this.gender === "male" &&
+            !leaveBalance.leaveTypeDetails.name
+              .toLowerCase()
+              .includes("maternity"))
+      ) || []
+    );
   } catch (error) {
     throw error;
   }

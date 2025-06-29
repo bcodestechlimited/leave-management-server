@@ -82,7 +82,6 @@ async function getTenant(tenantId) {
 async function updateTenantProfile(tenantId, profileData = {}, files = {}) {
   const { logo } = files;
 
-
   let logoURL;
 
   if (logo) {

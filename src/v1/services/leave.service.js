@@ -12,9 +12,10 @@ import mongoose from "mongoose";
 import emailUtils from "../../utils/emailUtils.js";
 import frontendURLs from "../../utils/frontendURLs.js";
 import ExcelJS from "exceljs";
+import { uploadToCloudinary } from "./upload.service.js";
 
 //Request For Leave
-async function requestLeave(leaveData = {}, employeeId, tenantId) {
+async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
   const { leaveTypeId, startDate, resumptionDate, duration, reason } =
     leaveData;
 
@@ -96,11 +97,17 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
 
   let lineManagerId = "";
 
-
   if (employee?.lineManager?.isOnLeave) {
     lineManagerId = employee.reliever._id;
   } else {
     lineManagerId = employee.lineManager._id;
+  }
+
+  let documentUrl = "";
+
+  //Upload image to cloudinary
+  if (document) {
+    documentUrl = await uploadToCloudinary(document.tempFilePath);
   }
 
   // Create leave request
@@ -113,6 +120,7 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
     resumptionDate,
     duration,
     reason,
+    document: documentUrl,
     status: "pending",
   });
 
@@ -131,10 +139,13 @@ async function requestLeave(leaveData = {}, employeeId, tenantId) {
     },
   ]);
 
+  // console.log({ leaveRequest });
+  // console.log({ employee });
+
   // Send mail to the line manager
   const emailObject = createEmailObject(leaveRequest, employee);
 
-  console.log(emailObject);
+  // console.log(emailObject);
 
   try {
     await emailUtils.sendLeaveRequestEmail(emailObject);
@@ -617,55 +628,14 @@ async function getLeaveBalance(employeeId, tenantId) {
     throw ApiError.notFound("Employee not found");
   }
 
-  const gender = employee.gender?.toLowerCase();
-  const isMale = gender === "male";
-
-  const leaveBalances = await EmployeeLeaveBalance.aggregate([
-    {
-      $match: {
-        employeeId: new mongoose.Types.ObjectId(employeeId),
-        tenantId: new mongoose.Types.ObjectId(tenantId),
-        // employeeId: employeeId,
-        // tenantId: tenantId,
-      },
-    },
-    {
-      $lookup: {
-        from: "leavetypes", // The name of the LeaveType collection in MongoDB
-        localField: "leaveTypeId",
-        foreignField: "_id",
-        as: "leaveTypeDetails",
-      },
-    },
-    {
-      $unwind: {
-        path: "$leaveTypeDetails",
-        preserveNullAndEmptyArrays: true, // In case there's no matching LeaveType
-      },
-    },
-    {
-      $project: {
-        _id: 0, // Exclude _id field
-        leaveTypeId: 1,
-        balance: 1,
-        "leaveTypeDetails.name": 1,
-        "leaveTypeDetails.defaultBalance": 1,
-      },
-    },
-  ]);
-
-  const filteredLeaveBalances = leaveBalances.filter((leaveBalance) => {
-    const leaveTypeName = leaveBalance.leaveTypeDetails.name;
-    if (isMale) {
-      return !leaveTypeName.toLowerCase().includes("maternity");
-    } else {
-      return !leaveTypeName.toLowerCase().includes("paternity");
-    }
-  });
+  const leaveBalances = await employee.getLeaveBalances(
+    String(employeeId),
+    String(tenantId)
+  );
 
   // Return empty array if no balances are found
   return ApiSuccess.ok("Leave balance retrieved successfully", {
-    leaveBalance: filteredLeaveBalances.length > 0 ? filteredLeaveBalances : [],
+    leaveBalance: leaveBalances.length > 0 ? leaveBalances : [],
   });
 }
 

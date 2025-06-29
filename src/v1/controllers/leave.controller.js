@@ -40,10 +40,12 @@ export const requestLeave = asyncWrapper(async (req, res, next) => {
   const leaveRequestData = req.body;
   const { tenantId } = req.tenant;
   const { employeeId } = req.employee; // Employee making the request
+  const { document } = req.files || {};
   const result = await leaveService.requestLeave(
     leaveRequestData,
     employeeId,
-    tenantId
+    tenantId,
+    document
   );
   res.status(201).json(result);
 });
