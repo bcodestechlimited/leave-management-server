@@ -185,6 +185,8 @@ async function getEmployee(employeeId, tenantId) {
     String(tenantId)
   );
 
+  console.log({ leaveBalances });
+
   return ApiSuccess.created("Employee Retrived Successfully  ", {
     employee,
     leaveBalances: leaveBalances.length > 0 ? leaveBalances : [],

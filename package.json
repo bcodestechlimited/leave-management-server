@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "start:dev": "nodemon app.js",
+    "stanbic": "node src/scripts/stanbic.js",
     "fetch": "node src/scripts/fetchEmployees.js",
     "copy": "node src/scripts/copyDB.js",
     "dev": "nodemon app.js",
@@ -32,7 +33,8 @@
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
-    "otp-generator": "^4.0.1"
+    "otp-generator": "^4.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.25.4",

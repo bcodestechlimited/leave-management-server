@@ -74,8 +74,7 @@ export const tenantUpdateValidator = [
 
   (req, res, next) => {
     if (!req.files || !req.files.logo) {
-      console.log("hhhhhhhhhhhhhhhh");
-
+      console.log("No files found");
       return next();
     }
 

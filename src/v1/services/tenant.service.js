@@ -82,8 +82,6 @@ async function getTenant(tenantId) {
 async function updateTenantProfile(tenantId, profileData = {}, files = {}) {
   const { logo } = files;
 
-  console.log({ profileData });
-
   let logoURL;
 
   if (logo) {
@@ -93,8 +91,6 @@ async function updateTenantProfile(tenantId, profileData = {}, files = {}) {
 
   const updatePayload = { ...profileData };
   updatePayload.logo = logoURL;
-
-  console.log({ updatePayload });
 
   const tenant = await Tenant.findOneAndUpdate(
     {

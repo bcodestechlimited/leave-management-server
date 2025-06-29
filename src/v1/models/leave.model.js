@@ -117,6 +117,10 @@ const leaveHistorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    document: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
