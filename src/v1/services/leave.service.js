@@ -97,7 +97,6 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
 
   let lineManagerId = "";
 
-
   if (employee?.lineManager?.isOnLeave) {
     lineManagerId = employee.reliever._id;
   } else {
@@ -140,8 +139,8 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     },
   ]);
 
-  console.log({ leaveRequest });
-  console.log({ employee });
+  // console.log({ leaveRequest });
+  // console.log({ employee });
 
   // Send mail to the line manager
   const emailObject = createEmailObject(leaveRequest, employee);
@@ -629,46 +628,14 @@ async function getLeaveBalance(employeeId, tenantId) {
     throw ApiError.notFound("Employee not found");
   }
 
-  const gender = employee.gender?.toLowerCase();
-  const isMale = gender === "male";
-
-  const leaveBalances = await EmployeeLeaveBalance.aggregate([
-    {
-      $match: {
-        employeeId: new mongoose.Types.ObjectId(employeeId),
-        tenantId: new mongoose.Types.ObjectId(tenantId),
-        // employeeId: employeeId,
-        // tenantId: tenantId,
-      },
-    },
-    {
-      $lookup: {
-        from: "leavetypes", // The name of the LeaveType collection in MongoDB
-        localField: "leaveTypeId",
-        foreignField: "_id",
-        as: "leaveTypeDetails",
-      },
-    },
-    {
-      $unwind: {
-        path: "$leaveTypeDetails",
-        preserveNullAndEmptyArrays: true, // In case there's no matching LeaveType
-      },
-    },
-    {
-      $project: {
-        _id: 0, // Exclude _id field
-        leaveTypeId: 1,
-        balance: 1,
-        "leaveTypeDetails.name": 1,
-        "leaveTypeDetails.defaultBalance": 1,
-      },
-    },
-  ]);
+  const leaveBalances = await employee.getLeaveBalances(
+    String(employeeId),
+    String(tenantId)
+  );
 
   // Return empty array if no balances are found
   return ApiSuccess.ok("Leave balance retrieved successfully", {
-    leaveBalance: filteredLeaveBalances.length > 0 ? filteredLeaveBalances : [],
+    leaveBalance: leaveBalances.length > 0 ? leaveBalances : [],
   });
 }
 

@@ -122,7 +122,6 @@ employeeSchema.methods.getLeaveBalances = async function (
   employeeId,
   tenantId
 ) {
-  console.log(this);
 
   try {
     const leaveBalances = await EmployeeLeaveBalance.aggregate([
