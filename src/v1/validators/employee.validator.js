@@ -117,7 +117,6 @@ export const employeeResetPasswordValidator = [
 
 export const bulkEmployeeInviteValidator = [
   (req, res, next) => {
-    // console.log({ files: req.files, body: req.body });
 
     if (!req.files) {
       throw ApiError.badRequest("Please upload a file");
@@ -151,6 +150,12 @@ export const employeeProfileUpdateValidator = [
     .isString()
     .withMessage("Job role must be a string."),
   body("branch").optional().isString().withMessage("branch must be a string."),
+  body("gender")
+    .optional()
+    .isString()
+    .withMessage("gender must be a string.")
+    .isIn(["male", "female"])
+    .withMessage("gender must be one of: male, female"),
   body("lineManager")
     .optional()
     .isMongoId()

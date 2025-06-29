@@ -189,7 +189,8 @@ async function getEmployee(employeeId, tenantId) {
 
   return ApiSuccess.created("Employee Retrived Successfully  ", {
     employee,
-    leaveBalances: leaveBalances.length > 0 ? leaveBalances : [],
+    leaveBalances:
+      filteredLeaveBalances.length > 0 ? filteredLeaveBalances : [],
   });
 }
 
@@ -241,8 +242,6 @@ async function getEmployees(query = {}, tenantId, employeeId = null) {
     populateOptions,
     excludeById,
   });
-
-  console.log(pagination);
 
   const stats = await Employee.getEmployeeStats();
 
@@ -389,13 +388,26 @@ async function updateEmployee(employeeId, tenantId, profileData = {}, files) {
     String(tenantId)
   );
 
+  const gender = employee.gender?.toLowerCase();
+  const isMale = gender === "male";
+
+  const filteredLeaveBalances = leaveBalances.filter((leaveBalance) => {
+    const leaveTypeName = leaveBalance.leaveTypeDetails.name;
+    if (isMale) {
+      return !leaveTypeName.toLowerCase().includes("maternity");
+    } else {
+      return !leaveTypeName.toLowerCase().includes("paternity");
+    }
+  });
+
   if (!employee) {
     throw ApiError.badRequest("No user with this email or tenant");
   }
 
   return ApiSuccess.ok("Profile Updated Successfully", {
     employee,
-    leaveBalances: leaveBalances.length > 0 ? leaveBalances : [],
+    leaveBalances:
+      filteredLeaveBalances.length > 0 ? filteredLeaveBalances : [],
   });
 }
 

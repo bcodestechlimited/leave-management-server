@@ -192,23 +192,12 @@ employeeSchema.pre("save", async function (next) {
 
 // Runs Only when level changes through findOneAndUpdate
 employeeSchema.pre("findOneAndUpdate", async function (next) {
-  // if (!this.isModified("levelId") || !this.levelId) return next();
   const update = this.getUpdate();
-  // console.log({ update });
-  // console.log(!update);
-  // console.log(!update.levelId);
 
   if (!update || !update.levelId) return next();
 
   try {
     const employee = await this.model.findOne(this.getQuery());
-
-    // console.log({
-    //   employee,
-    //   levelId: update?.levelId,
-    //   updateLevelId: update.levelId,
-    //   isSame: employee?.levelId?.toString() === update.levelId.toString(),
-    // });
 
     if (employee) {
       if (update?.levelId != null) {
