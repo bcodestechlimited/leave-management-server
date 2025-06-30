@@ -156,7 +156,7 @@ employeeSchema.methods.getLeaveBalances = async function (
       },
     ]);
 
-    console.log({ leaveBalances: leaveBalances[0].leaveTypeDetails });
+    console.log({ leaveBalances: leaveBalances });
 
     return (
       leaveBalances?.filter(
