@@ -7,6 +7,7 @@
     "start": "node app.js",
     "start:dev": "nodemon app.js",
     "stanbic": "node src/scripts/stanbic.js",
+    "load": "node src/scripts/loadLineManagers.js",
     "fix": "node src/scripts/fix.js",
     "fetch": "node src/scripts/fetchEmployees.js",
     "copy": "node src/scripts/copyDB.js",
