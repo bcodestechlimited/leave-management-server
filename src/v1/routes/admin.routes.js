@@ -7,10 +7,11 @@ import {
   adminRegister,
   adminResetPassword,
   getAdmin,
+  getLeaveRequestAnalytics,
   getTenant,
   getTenants,
 } from "../controllers/admin.controller.js";
-import { isAuth, isSuperAdmin } from "../../middlewares/auth.js";
+import { isAdmin, isAuth, isSuperAdmin } from "../../middlewares/auth.js";
 import { tenantValidator } from "../validators/tenant.validator.js";
 import {
   adminForgotPasswordValidator,
@@ -59,9 +60,9 @@ router
   .get(isAuth, isSuperAdmin, getTenant)
   .all(methodNotAllowed);
 
-// router
-//   .route("/tenant/employee")
-//   .post(isAuth, isAdmin, employeeSignUpValidator, addEmployeeToTenant)
-//   .all(methodNotAllowed);
+router
+  .route("/leave/analytics")
+  .get(isAuth, isSuperAdmin, getLeaveRequestAnalytics)
+  .all(methodNotAllowed);
 
 export default router;

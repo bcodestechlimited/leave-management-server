@@ -70,7 +70,7 @@ async function addTenant(tenantData = {}, files = {}) {
 
 async function getTenants(query = {}) {
   const tenants = await Tenant.find({});
-  return ApiSuccess.created("Client retrieved successfully", { tenants });
+  return ApiSuccess.created("Clients retrieved successfully", { tenants });
 }
 
 async function getTenant(tenantId) {

@@ -127,6 +127,11 @@ const leaveHistorySchema = new mongoose.Schema(
 
 // Static method to generate chart data
 leaveHistorySchema.statics.generateChartData = async function (tenantId, year) {
+  console.log({
+    tenantId,
+    year,
+  });
+
   let matchStage = {
     $match: { tenantId: new mongoose.Types.ObjectId(tenantId) },
   };
@@ -189,6 +194,8 @@ leaveHistorySchema.statics.generateChartData = async function (tenantId, year) {
       pendingRequests: data?.pendingRequests || 0,
     };
   });
+
+  // console.log({ result, leaveData });
 
   return result;
 };

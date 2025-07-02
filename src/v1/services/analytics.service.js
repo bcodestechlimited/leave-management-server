@@ -3,6 +3,11 @@ import { LeaveHistory } from "../models/leave.model.js";
 
 async function getLeaveRequestAnalytics(tenantId, year) {
   const analytics = await LeaveHistory.generateChartData(tenantId, year);
+
+  // console.log({
+  //   analytics,
+  // });
+
   return ApiSuccess.ok("Analytics Retrieved Successfully", {
     analytics,
   });

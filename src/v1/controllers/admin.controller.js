@@ -1,5 +1,6 @@
 import asyncWrapper from "../../middlewares/asyncWrapper.js";
 import adminService from "../services/admin.service.js";
+import analyticsService from "../services/analytics.service.js";
 import employeeService from "../services/employee.service.js";
 import tenantService from "../services/tenant.service.js";
 
@@ -54,4 +55,14 @@ export const addEmployeeToTenant = asyncWrapper(async (req, res, next) => {
   const employeeData = req.body;
   const result = await employeeService.addEmployeeToTenant(employeeData);
   res.status(201).json(result);
+});
+
+// Analytics
+export const getLeaveRequestAnalytics = asyncWrapper(async (req, res, next) => {
+  const { year, tenantId } = req.query;
+  const result = await analyticsService.getLeaveRequestAnalytics(
+    tenantId,
+    year
+  );
+  res.status(200).json(result);
 });

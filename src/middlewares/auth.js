@@ -27,6 +27,8 @@ const isAuth = asyncWrapper(async (req, res, next) => {
   }
   //Holds whichever user is logged in
   req.user = payload;
+  // console.log({ user: req.user });
+
   next();
 });
 
