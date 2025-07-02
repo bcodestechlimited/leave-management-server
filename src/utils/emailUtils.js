@@ -371,7 +371,6 @@ async function sendLeaveRejectionEmail({
 }
 
 //Client
-
 async function sendClientLeaveRequestEmail({
   email,
   tenantName,
@@ -415,6 +414,7 @@ async function sendClientLeaveRequestEmail({
 
     // return sendEmail({ to: tenantEmail, subject, text: emailText, html });
     return sendEmail({
+      // to: "davidtumuch@gmail.com",
       to: "leave@icsoutsourcing.com",
       subject,
       text: emailText,
