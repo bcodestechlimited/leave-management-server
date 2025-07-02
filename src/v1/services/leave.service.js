@@ -44,8 +44,6 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     throw ApiError.badRequest("Insufficient leave balance.");
   }
 
-  leaveBalance.balance = leaveBalance.balance - duration;
-
   const employee = await Employee.findById(employeeId).populate([
     {
       path: "tenantId",
@@ -110,6 +108,17 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     documentUrl = await uploadToCloudinary(document.tempFilePath);
   }
 
+  const pendingRequest = await LeaveHistory.findOne({
+    employee: employeeId,
+    status: "pending",
+  });
+
+  if (pendingRequest) {
+    throw ApiError.badRequest(
+      "You already have a pending leave request, please wait for that request to be approved."
+    );
+  }
+
   // Create leave request
   const leaveRequest = new LeaveHistory({
     tenantId,
@@ -122,8 +131,14 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     reason,
     document: documentUrl,
     status: "pending",
+    leaveSummary: {
+      balanceBeforeLeave: leaveBalance.balance,
+      balanceAfterLeave: leaveBalance.balance - duration,
+      remainingDays: leaveBalance.balance - duration,
+    },
   });
 
+  leaveBalance.balance = leaveBalance.balance - duration;
   employee.isOnLeave = true;
 
   await leaveRequest.save();
@@ -732,7 +747,7 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
       endDate: enddate,
       resumptionDate: leave.resumptionDate?.toISOString().split("T")[0] || "",
       duration: leave.duration || 0,
-      remDays: leave.remainingDays || 0,
+      remDays: leave.leaveSummary.remainingDays || 0,
       reliever: `${employee.reliever.firstname || ""} ${
         employee.reliever.middlename || ""
       } ${employee.reliever.surname || ""}`,

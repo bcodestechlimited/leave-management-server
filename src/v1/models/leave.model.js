@@ -117,6 +117,27 @@ const leaveHistorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    leaveSummary: {
+      type: {
+        balanceBeforeLeave: {
+          type: Number,
+          default: 0,
+        },
+        balanceAfterLeave: {
+          type: Number,
+          default: 0,
+        },
+        remainingDays: {
+          type: Number,
+          default: 0,
+        },
+      },
+      default: {
+        balanceBeforeLeave: 0,
+        balanceAfterLeave: 0,
+        remainingDays: 0,
+      },
+    },
     document: {
       type: String,
       default: null,
