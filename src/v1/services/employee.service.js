@@ -15,6 +15,7 @@ import {
 } from "../../utils/csvParserUtil.js";
 import PasswordReset from "../models/passwordReset.model.js";
 import { uploadToCloudinary } from "./upload.service.js";
+import { EmployeeLeaveBalance, LeaveHistory } from "../models/leave.model.js";
 
 async function signIn(employeeData = {}) {
   const { email, password } = employeeData;
@@ -408,6 +409,37 @@ async function updateEmployee(employeeId, tenantId, profileData = {}, files) {
   });
 }
 
+async function deleteEmployee(employeeId, tenantId) {
+  if (!employeeId) {
+    throw ApiError.badRequest("EmployeeId not provided");
+  }
+
+  const employee = await Employee.findOneAndDelete({
+    _id: employeeId,
+    tenantId,
+  });
+
+  if (!employee) {
+    throw ApiError.notFound("Employee not found");
+  }
+
+  await EmployeeLeaveBalance.deleteOne({ employeeId, tenantId });
+
+  await LeaveHistory.updateMany({ employeeId }, { $set: { employeeId: null } });
+
+  await Employee.updateMany(
+    { lineManager: employeeId },
+    { $set: { lineManager: null } }
+  );
+
+  await Employee.updateMany(
+    { reliever: employeeId },
+    { $set: { reliever: null } }
+  );
+
+  return ApiSuccess.ok("Employee deleted successfully");
+}
+
 // Forgot Password
 async function forgotPassword(email) {
   const employee = await Employee.findOne({ email }).populate("tenantId");
@@ -616,6 +648,7 @@ export default {
   getEmployee,
   updateEmployee,
   getEmployees,
+  deleteEmployee,
   signIn,
   forgotPassword,
   resetPassword,

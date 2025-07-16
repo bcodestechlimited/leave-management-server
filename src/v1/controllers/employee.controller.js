@@ -79,6 +79,13 @@ export const updateEmployee = asyncWrapper(async (req, res, next) => {
   res.status(200).json(result);
 });
 
+export const deleteEmployee = asyncWrapper(async (req, res, next) => {
+  const { tenantId } = req.tenant;
+  const { employeeId } = req.params;
+  const result = await employeeService.deleteEmployee(employeeId, tenantId);
+  res.status(201).json(result);
+});
+
 //Invites
 export const sendInviteToEmployee = asyncWrapper(async (req, res, next) => {
   const inviteData = req.body;
@@ -129,6 +136,7 @@ export const deleteLineManager = asyncWrapper(async (req, res, next) => {
   const result = await employeeService.deleteLineManager(employeeId, tenantId);
   res.status(201).json(result);
 });
+
 //Admins
 
 export default {

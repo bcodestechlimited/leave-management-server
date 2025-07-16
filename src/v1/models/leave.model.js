@@ -216,7 +216,6 @@ leaveHistorySchema.statics.generateChartData = async function (tenantId, year) {
     };
   });
 
-  // console.log({ result, leaveData });
 
   return result;
 };

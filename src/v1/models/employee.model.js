@@ -156,7 +156,6 @@ employeeSchema.methods.getLeaveBalances = async function (
       },
     ]);
 
-    console.log({ leaveBalances: leaveBalances });
 
     return (
       leaveBalances?.filter(

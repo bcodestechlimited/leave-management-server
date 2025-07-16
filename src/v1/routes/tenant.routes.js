@@ -24,6 +24,7 @@ import {
 } from "../validators/employee.validator.js";
 import {
   addLineManager,
+  deleteEmployee,
   deleteLineManager,
   getEmployee,
   getEmployees,
@@ -89,6 +90,7 @@ router
     validateMongoIdParam("employeeId"),
     updateEmployee
   )
+  .delete(tenantMiddleware, isAuth, isTenantAdmin, deleteEmployee)
   .all(methodNotAllowed);
 
 router

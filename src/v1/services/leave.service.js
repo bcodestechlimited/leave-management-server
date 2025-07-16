@@ -154,13 +154,8 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     },
   ]);
 
-  // console.log({ leaveRequest });
-  // console.log({ employee });
-
   // Send mail to the line manager
   const emailObject = createEmailObject(leaveRequest, employee);
-
-  // console.log(emailObject);
 
   try {
     await emailUtils.sendLeaveRequestEmail(emailObject);
@@ -408,8 +403,6 @@ async function updateLeaveRequestByClientAdmin(
 
     try {
       const emailObject = createEmailObject(leaveRequest, employee);
-      console.log({ emailObject });
-
       await emailUtils.sendClientLeaveRejectionEmail(emailObject);
     } catch (error) {
       console.error("Failed to send leave rejection email:", error);
@@ -434,7 +427,6 @@ async function updateLeaveRequestByClientAdmin(
 
     try {
       const emailObject = createEmailObject(leaveRequest, employee);
-      console.log({ emailObject });
       await emailUtils.sendLeaveApprovalEmail(emailObject);
       await emailUtils.sendLeaveApprovalEmailToLineManager(emailObject);
     } catch (error) {
