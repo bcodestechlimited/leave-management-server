@@ -9,6 +9,7 @@
     "stanbic": "node src/scripts/stanbic.js",
     "load": "node src/scripts/loadLineManagers.js",
     "fix": "node src/scripts/fix.js",
+    "stale": "node src/scripts/stale.js",
     "fetch": "node src/scripts/fetchEmployees.js",
     "copy": "node src/scripts/copyDB.js",
     "dev": "nodemon app.js",

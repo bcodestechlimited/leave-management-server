@@ -176,60 +176,107 @@ async function getLeaveRequests(query = {}, tenantId) {
     page = 1,
     limit = 10,
     search,
+    status,
     sort = { createdAt: -1 },
     employee,
     lineManager,
   } = query;
 
-  const filter = { tenantId };
-  const conditions = [];
+  // --- Base match (tenant + optional employee/manager filter) ---
+  const baseMatch = {
+    tenantId: new mongoose.Types.ObjectId(tenantId),
+  };
 
-  // Add search condition if present
+  if (employee) {
+    baseMatch.employee = new mongoose.Types.ObjectId(employee);
+  }
+
+  if (lineManager) {
+    baseMatch.lineManager = new mongoose.Types.ObjectId(lineManager);
+  }
+
+  if (status && status.toLowerCase() !== "all") {
+    baseMatch.status = status;
+  }
+  
+  // --- Count total before any search ---
+  const totalCount = await LeaveHistory.countDocuments(baseMatch);
+
+  // --- Build aggregation pipeline ---
+  const pipeline = [
+    { $match: baseMatch },
+
+    // lookup employee
+    {
+      $lookup: {
+        from: "employees",
+        localField: "employee",
+        foreignField: "_id",
+        as: "employee",
+      },
+    },
+    { $unwind: "$employee" },
+
+    // lookup lineManager
+    {
+      $lookup: {
+        from: "employees",
+        localField: "lineManager",
+        foreignField: "_id",
+        as: "lineManager",
+      },
+    },
+    { $unwind: "$lineManager" },
+  ];
+
+  let searchTokens = [];
   if (search) {
-    conditions.push({
+    searchTokens = search.split(" ").filter(Boolean); // ["david", "smith"]
+  }
+
+  if (searchTokens.length > 0) {
+    const tokenRegexConditions = searchTokens.map((token) => ({
       $or: [
-        { description: { $regex: search, $options: "i" } },
-        { status: { $regex: search, $options: "i" } },
+        { description: { $regex: token, $options: "i" } },
+        { status: { $regex: token, $options: "i" } },
+        { "employee.firstname": { $regex: token, $options: "i" } },
+        { "employee.middlename": { $regex: token, $options: "i" } },
+        { "employee.surname": { $regex: token, $options: "i" } },
+        { "lineManager.firstname": { $regex: token, $options: "i" } },
+        { "lineManager.middlename": { $regex: token, $options: "i" } },
+        { "lineManager.surname": { $regex: token, $options: "i" } },
       ],
+    }));
+
+    pipeline.push({
+      $match: { $and: tokenRegexConditions },
     });
   }
 
-  // Add employee condition if present
-  if (employee) {
-    conditions.push({ employee: employee });
-  }
+  // --- Count filtered results ---
+  const countPipeline = [...pipeline, { $count: "count" }];
+  const countResult = await LeaveHistory.aggregate(countPipeline);
+  const filteredCount = countResult.length > 0 ? countResult[0].count : 0;
 
-  // Add line manager condition if present
-  if (lineManager) {
-    conditions.push({ lineManager: lineManager });
-  }
+  // --- Sorting & Pagination ---
+  pipeline.push({ $sort: sort });
+  pipeline.push({ $skip: (page - 1) * limit });
+  pipeline.push({ $limit: Number(limit) || 10 });
 
-  // If we have any conditions, add them to the filter using $and
-  if (conditions.length > 0) {
-    filter.$and = conditions;
-  }
+  // --- Execute final query ---
+  const leaveRequests = await LeaveHistory.aggregate(pipeline);
 
-  const populateOptions = [
-    {
-      path: "employee",
-    },
-    {
-      path: "lineManager",
-    },
-  ];
-
-  const { documents: leaveRequests, pagination } = await paginate({
-    model: LeaveHistory,
-    query: filter,
-    page,
-    limit,
-    sort,
-    populateOptions,
-  });
+  console.log({ totalCount, filteredCount });
 
   return ApiSuccess.ok("Leave requests retrieved successfully", {
     leaveRequests,
-    pagination,
+    pagination: {
+      totalCount,
+      filteredCount,
+      totalPages: Math.ceil(filteredCount / limit),
+      page,
+      limit,
+    },
   });
 }
 
