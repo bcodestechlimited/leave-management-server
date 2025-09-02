@@ -73,11 +73,11 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     },
   ]);
 
-  if (!employee.lineManager) {
+  if (!employee.lineManager || employee.lineManager === null) {
     throw ApiError.badRequest("Please update your line manager");
   }
 
-  if (!employee.reliever) {
+  if (!employee.reliever || employee.reliever === null) {
     throw ApiError.badRequest("Please update your reliever");
   }
 
@@ -93,13 +93,8 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     throw ApiError.badRequest("Your line manager is on leave");
   }
 
-  let lineManagerId = "";
-
-  if (employee?.lineManager?.isOnLeave) {
-    lineManagerId = employee.reliever._id;
-  } else {
-    lineManagerId = employee.lineManager._id;
-  }
+  let lineManagerId = employee.lineManager._id;
+  let relieverId = employee.reliever._id;
 
   let documentUrl = "";
 
@@ -124,6 +119,7 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     tenantId,
     employee: employeeId,
     lineManager: lineManagerId,
+    reliever: relieverId,
     leaveType: leaveTypeId,
     startDate,
     resumptionDate,
@@ -176,60 +172,107 @@ async function getLeaveRequests(query = {}, tenantId) {
     page = 1,
     limit = 10,
     search,
+    status,
     sort = { createdAt: -1 },
     employee,
     lineManager,
   } = query;
 
-  const filter = { tenantId };
-  const conditions = [];
+  // --- Base match (tenant + optional employee/manager filter) ---
+  const baseMatch = {
+    tenantId: new mongoose.Types.ObjectId(tenantId),
+  };
 
-  // Add search condition if present
+  if (employee) {
+    baseMatch.employee = new mongoose.Types.ObjectId(employee);
+  }
+
+  if (lineManager) {
+    baseMatch.lineManager = new mongoose.Types.ObjectId(lineManager);
+  }
+
+  if (status && status.toLowerCase() !== "all") {
+    baseMatch.status = status;
+  }
+
+  // --- Count total before any search ---
+  const totalCount = await LeaveHistory.countDocuments(baseMatch);
+
+  // --- Build aggregation pipeline ---
+  const pipeline = [
+    { $match: baseMatch },
+
+    // lookup employee
+    {
+      $lookup: {
+        from: "employees",
+        localField: "employee",
+        foreignField: "_id",
+        as: "employee",
+      },
+    },
+    { $unwind: "$employee" },
+
+    // lookup lineManager
+    {
+      $lookup: {
+        from: "employees",
+        localField: "lineManager",
+        foreignField: "_id",
+        as: "lineManager",
+      },
+    },
+    { $unwind: "$lineManager" },
+  ];
+
+  let searchTokens = [];
   if (search) {
-    conditions.push({
+    searchTokens = search.split(" ").filter(Boolean); // ["david", "smith"]
+  }
+
+  if (searchTokens.length > 0) {
+    const tokenRegexConditions = searchTokens.map((token) => ({
       $or: [
-        { description: { $regex: search, $options: "i" } },
-        { status: { $regex: search, $options: "i" } },
+        { description: { $regex: token, $options: "i" } },
+        { status: { $regex: token, $options: "i" } },
+        { "employee.firstname": { $regex: token, $options: "i" } },
+        { "employee.middlename": { $regex: token, $options: "i" } },
+        { "employee.surname": { $regex: token, $options: "i" } },
+        { "lineManager.firstname": { $regex: token, $options: "i" } },
+        { "lineManager.middlename": { $regex: token, $options: "i" } },
+        { "lineManager.surname": { $regex: token, $options: "i" } },
       ],
+    }));
+
+    pipeline.push({
+      $match: { $and: tokenRegexConditions },
     });
   }
 
-  // Add employee condition if present
-  if (employee) {
-    conditions.push({ employee: employee });
-  }
+  // --- Count filtered results ---
+  const countPipeline = [...pipeline, { $count: "count" }];
+  const countResult = await LeaveHistory.aggregate(countPipeline);
+  const filteredCount = countResult.length > 0 ? countResult[0].count : 0;
 
-  // Add line manager condition if present
-  if (lineManager) {
-    conditions.push({ lineManager: lineManager });
-  }
+  // --- Sorting & Pagination ---
+  pipeline.push({ $sort: sort });
+  pipeline.push({ $skip: (page - 1) * limit });
+  pipeline.push({ $limit: Number(limit) || 10 });
 
-  // If we have any conditions, add them to the filter using $and
-  if (conditions.length > 0) {
-    filter.$and = conditions;
-  }
+  // --- Execute final query ---
+  const leaveRequests = await LeaveHistory.aggregate(pipeline);
 
-  const populateOptions = [
-    {
-      path: "employee",
-    },
-    {
-      path: "lineManager",
-    },
-  ];
-
-  const { documents: leaveRequests, pagination } = await paginate({
-    model: LeaveHistory,
-    query: filter,
-    page,
-    limit,
-    sort,
-    populateOptions,
-  });
+  console.log({ totalCount, filteredCount });
 
   return ApiSuccess.ok("Leave requests retrieved successfully", {
     leaveRequests,
-    pagination,
+    pagination: {
+      totalCount,
+      filteredCount,
+      totalPages: Math.ceil(filteredCount / limit),
+      page,
+      limit,
+    },
   });
 }
 
@@ -675,12 +718,13 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
         path: "lineManager",
       },
       {
+        path: "reliever",
+      },
+      {
         path: "leaveType",
       },
     ])
     .sort({ createdAt: -1 });
-
-  // ["employee", "lineManager", "leaveType"]
 
   // Create a new workbook and worksheet
   const workbook = new ExcelJS.Workbook();
@@ -708,23 +752,41 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
     const employee = leave.employee || {};
     const leaveType = leave.leaveType || {};
 
-    // Fetch leave balance
-    // const leaveBalanceDoc = await EmployeeLeaveBalance.findOne({
-    //   tenantId,
-    //   employeeId: employee._id,
-    //   leaveTypeId: leaveType._id,
-    // }).populate("leaveTypeId");
-
-    // console.log({ leaveBalanceDoc });
-
-    // const remainingDays = leaveBalanceDoc ? leaveBalanceDoc.balance : "N/A";
     const enddate = leave.resumptionDate
       ? new Date(leave.resumptionDate.getTime() - 1000 * 60 * 60 * 24)
           .toISOString()
           .split("T")[0]
       : "";
 
-    // console.log({ employee });
+    let relieverDoc = leave.reliever || employee?.reliever; // prefer leave.reliever, fallback to employee.reliever
+    let relieverName = "N/A";
+
+    if (relieverDoc) {
+      relieverName = `${relieverDoc.firstname || ""} ${
+        relieverDoc.middlename || ""
+      } ${relieverDoc.surname || ""}`.trim();
+    } else {
+      console.log("⚠️ Missing reliever for employee:", {
+        employeeId: employee?._id,
+        staffId: employee?.staffId,
+        name: `${employee?.firstname || ""} ${employee?.surname || ""}`,
+        leaveId: leave._id,
+      });
+    }
+
+    if (employee?.reliever) {
+      relieverName = `${employee.reliever.firstname || ""} ${
+        employee.reliever.middlename || ""
+      } ${employee.reliever.surname || ""}`;
+    } else {
+      relieverName = "N/A";
+      console.log("⚠️ Missing reliever for employee:", {
+        employeeId: employee?._id,
+        staffId: employee?.staffId,
+        name: `${employee?.firstname || ""} ${employee?.surname || ""}`,
+        leaveId: leave._id,
+      });
+    }
 
     worksheet.addRow({
       sn: index + 1,
@@ -740,10 +802,7 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
       resumptionDate: leave.resumptionDate?.toISOString().split("T")[0] || "",
       duration: leave.duration || 0,
       remDays: leave.leaveSummary.remainingDays || 0,
-      reliever: `${employee.reliever.firstname || ""} ${
-        employee.reliever.middlename || ""
-      } ${employee.reliever.surname || ""}`,
-      rejectionReason: leave.rejectionReason || "",
+      reliever: relieverName,
     });
   }
 

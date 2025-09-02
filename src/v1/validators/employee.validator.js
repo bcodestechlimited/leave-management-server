@@ -117,7 +117,6 @@ export const employeeResetPasswordValidator = [
 
 export const bulkEmployeeInviteValidator = [
   (req, res, next) => {
-
     if (!req.files) {
       throw ApiError.badRequest("Please upload a file");
     }
@@ -157,10 +156,12 @@ export const employeeProfileUpdateValidator = [
     .isIn(["male", "female"])
     .withMessage("gender must be one of: male, female"),
   body("lineManager")
+    .customSanitizer((value) => (value === null ? undefined : value))
     .optional()
     .isMongoId()
     .withMessage("Line Manager must be a valid MongoDB ID."),
   body("reliever")
+    .customSanitizer((value) => (value === null ? undefined : value))
     .optional()
     .isMongoId()
     .withMessage("Reliever must be a valid MongoDB ID."),

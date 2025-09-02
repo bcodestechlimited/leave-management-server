@@ -69,7 +69,7 @@ export const getEmployee = asyncWrapper(async (req, res, next) => {
 export const updateEmployee = asyncWrapper(async (req, res, next) => {
   const { tenantId } = req.tenant;
   const { employeeId } = req.params;
-  const profileData = req.body;
+  const profileData = req.body;  
   const result = await employeeService.updateEmployee(
     employeeId,
     tenantId,

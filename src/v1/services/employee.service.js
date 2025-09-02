@@ -223,6 +223,14 @@ async function getEmployees(query = {}, tenantId, employeeId = null) {
       path: "levelId",
       select: "name",
     },
+    {
+      path: "lineManager",
+      // select: ["firstname", "lastname", "surname", "email", "isOnLeave"],
+    },
+    {
+      path: "reliever",
+      // select: ["firstname", "lastname", "surname", "email", "isOnLeave"],
+    },
   ];
 
   let excludeById = null;
