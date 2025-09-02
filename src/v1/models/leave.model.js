@@ -59,6 +59,11 @@ const leaveHistorySchema = new mongoose.Schema(
       ref: "Employee",
       required: true,
     },
+    reliever: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      required: true,
+    },
     lineManager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -215,7 +220,6 @@ leaveHistorySchema.statics.generateChartData = async function (tenantId, year) {
       pendingRequests: data?.pendingRequests || 0,
     };
   });
-
 
   return result;
 };

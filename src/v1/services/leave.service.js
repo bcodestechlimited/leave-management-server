@@ -73,11 +73,11 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     },
   ]);
 
-  if (!employee.lineManager) {
+  if (!employee.lineManager || employee.lineManager === null) {
     throw ApiError.badRequest("Please update your line manager");
   }
 
-  if (!employee.reliever) {
+  if (!employee.reliever || employee.reliever === null) {
     throw ApiError.badRequest("Please update your reliever");
   }
 
@@ -93,13 +93,8 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     throw ApiError.badRequest("Your line manager is on leave");
   }
 
-  let lineManagerId = "";
-
-  if (employee?.lineManager?.isOnLeave) {
-    lineManagerId = employee.reliever._id;
-  } else {
-    lineManagerId = employee.lineManager._id;
-  }
+  let lineManagerId = employee.lineManager._id;
+  let relieverId = employee.reliever._id;
 
   let documentUrl = "";
 
@@ -124,6 +119,7 @@ async function requestLeave(leaveData = {}, employeeId, tenantId, document) {
     tenantId,
     employee: employeeId,
     lineManager: lineManagerId,
+    reliever: relieverId,
     leaveType: leaveTypeId,
     startDate,
     resumptionDate,
@@ -198,7 +194,7 @@ async function getLeaveRequests(query = {}, tenantId) {
   if (status && status.toLowerCase() !== "all") {
     baseMatch.status = status;
   }
-  
+
   // --- Count total before any search ---
   const totalCount = await LeaveHistory.countDocuments(baseMatch);
 
@@ -722,12 +718,13 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
         path: "lineManager",
       },
       {
+        path: "reliever",
+      },
+      {
         path: "leaveType",
       },
     ])
     .sort({ createdAt: -1 });
-
-  // ["employee", "lineManager", "leaveType"]
 
   // Create a new workbook and worksheet
   const workbook = new ExcelJS.Workbook();
@@ -755,23 +752,41 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
     const employee = leave.employee || {};
     const leaveType = leave.leaveType || {};
 
-    // Fetch leave balance
-    // const leaveBalanceDoc = await EmployeeLeaveBalance.findOne({
-    //   tenantId,
-    //   employeeId: employee._id,
-    //   leaveTypeId: leaveType._id,
-    // }).populate("leaveTypeId");
-
-    // console.log({ leaveBalanceDoc });
-
-    // const remainingDays = leaveBalanceDoc ? leaveBalanceDoc.balance : "N/A";
     const enddate = leave.resumptionDate
       ? new Date(leave.resumptionDate.getTime() - 1000 * 60 * 60 * 24)
           .toISOString()
           .split("T")[0]
       : "";
 
-    // console.log({ employee });
+    let relieverDoc = leave.reliever || employee?.reliever; // prefer leave.reliever, fallback to employee.reliever
+    let relieverName = "N/A";
+
+    if (relieverDoc) {
+      relieverName = `${relieverDoc.firstname || ""} ${
+        relieverDoc.middlename || ""
+      } ${relieverDoc.surname || ""}`.trim();
+    } else {
+      console.log("⚠️ Missing reliever for employee:", {
+        employeeId: employee?._id,
+        staffId: employee?.staffId,
+        name: `${employee?.firstname || ""} ${employee?.surname || ""}`,
+        leaveId: leave._id,
+      });
+    }
+
+    if (employee?.reliever) {
+      relieverName = `${employee.reliever.firstname || ""} ${
+        employee.reliever.middlename || ""
+      } ${employee.reliever.surname || ""}`;
+    } else {
+      relieverName = "N/A";
+      console.log("⚠️ Missing reliever for employee:", {
+        employeeId: employee?._id,
+        staffId: employee?.staffId,
+        name: `${employee?.firstname || ""} ${employee?.surname || ""}`,
+        leaveId: leave._id,
+      });
+    }
 
     worksheet.addRow({
       sn: index + 1,
@@ -787,10 +802,7 @@ async function getMonthlyLeaveReport(tenantId, query = {}) {
       resumptionDate: leave.resumptionDate?.toISOString().split("T")[0] || "",
       duration: leave.duration || 0,
       remDays: leave.leaveSummary.remainingDays || 0,
-      reliever: `${employee.reliever.firstname || ""} ${
-        employee.reliever.middlename || ""
-      } ${employee.reliever.surname || ""}`,
-      rejectionReason: leave.rejectionReason || "",
+      reliever: relieverName,
     });
   }
 

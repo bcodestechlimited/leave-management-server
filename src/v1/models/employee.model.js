@@ -122,7 +122,6 @@ employeeSchema.methods.getLeaveBalances = async function (
   employeeId,
   tenantId
 ) {
-
   try {
     const leaveBalances = await EmployeeLeaveBalance.aggregate([
       {
@@ -155,7 +154,6 @@ employeeSchema.methods.getLeaveBalances = async function (
         },
       },
     ]);
-
 
     return (
       leaveBalances?.filter(
@@ -215,7 +213,12 @@ employeeSchema.pre("findOneAndUpdate", async function (next) {
 
 // Function to update leave balances for an employee
 async function updateLeaveBalances(employee, newLevelId = employee.levelId) {
-  if (newLevelId === null || newLevelId === employee.levelId) {
+  console.log({
+    levelId: String(employee.levelId),
+    newLevelId,
+  });
+
+  if (newLevelId === null || String(newLevelId) === String(employee.levelId)) {
     console.log(
       `No change in levelId for employee, Employee levelId: ${employee.levelId} newLevelId: ${newLevelId}`
     );
