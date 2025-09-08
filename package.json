@@ -6,14 +6,15 @@
   "scripts": {
     "start": "node app.js",
     "start:dev": "nodemon app.js",
+    "dev": "nodemon app.js",
+    "test": "jest",
     "stanbic": "node src/scripts/stanbic.js",
     "load": "node src/scripts/loadLineManagers.js",
     "fix": "node src/scripts/fix.js",
     "stale": "node src/scripts/stale.js",
     "fetch": "node src/scripts/fetchEmployees.js",
     "copy": "node src/scripts/copyDB.js",
-    "dev": "nodemon app.js",
-    "test": "jest"
+    "scripts:rejectleave": "node src/scripts/rejectLeave.js"
   },
   "author": "",
   "license": "ISC",

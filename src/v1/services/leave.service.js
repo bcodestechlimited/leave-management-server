@@ -323,6 +323,9 @@ async function updateLeaveRequest(
     tenantId,
   }).populate({ path: "employee" });
 
+  // Needed for  while since reliever is now on the leaveRequest
+  leaveRequest.reliever = leaveRequest.employee.reliever;
+
   if (!leaveRequest) {
     throw ApiError.badRequest(
       "No leave request found with the provided leaveId."
@@ -407,6 +410,9 @@ async function updateLeaveRequestByClientAdmin(
     _id: leaveId,
     tenantId,
   }).populate({ path: "employee" });
+
+  // Needed for  while since reliever is now on the leaveRequest
+  leaveRequest.reliever = leaveRequest.employee.reliever;
 
   if (!leaveRequest) {
     throw ApiError.badRequest(
