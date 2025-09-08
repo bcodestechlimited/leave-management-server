@@ -411,6 +411,9 @@ async function updateLeaveRequestByClientAdmin(
     tenantId,
   }).populate({ path: "employee" });
 
+  // Needed for  while since reliever is now on the leaveRequest
+  leaveRequest.reliever = leaveRequest.employee.reliever;
+
   if (!leaveRequest) {
     throw ApiError.badRequest(
       "No leave request found with the provided leaveId."
