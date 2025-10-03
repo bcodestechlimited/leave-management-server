@@ -8,6 +8,8 @@ import {
   adminResetPassword,
   getAdmin,
   getLeaveRequestAnalytics,
+  getLeaveRequestsBySuperAdmin,
+  getSingleLeaveRequestBySuperAdmin,
   getTenant,
   getTenants,
 } from "../controllers/admin.controller.js";
@@ -19,6 +21,11 @@ import {
   adminRegisterValidator,
   adminResetPasswordValidator,
 } from "../validators/admin.validator.js";
+import {
+  getSingleLeaveRequest,
+  updateLeaveRequestBySuperAdmin,
+} from "../controllers/leave.controller.js";
+import { leaveRequestUpdateBySuperAdminValidator } from "../validators/leave.validator.js";
 
 const router = express.Router();
 
@@ -58,6 +65,22 @@ router
 router
   .route("/tenant/:tenantId")
   .get(isAuth, isSuperAdmin, getTenant)
+  .all(methodNotAllowed);
+
+router
+  .route("/leave/leave-request")
+  .get(isAuth, isSuperAdmin, getLeaveRequestsBySuperAdmin) // Get a specific leave request
+  .all(methodNotAllowed);
+
+router
+  .route("/leave/leave-request/:leaveRequestId")
+  .get(isAuth, isSuperAdmin, getSingleLeaveRequestBySuperAdmin) // Get a specific leave request
+  .put(
+    isAuth,
+    isSuperAdmin,
+    leaveRequestUpdateBySuperAdminValidator,
+    updateLeaveRequestBySuperAdmin
+  )
   .all(methodNotAllowed);
 
 router

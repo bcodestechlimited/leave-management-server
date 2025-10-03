@@ -275,6 +275,115 @@ async function getLeaveRequests(query = {}, tenantId) {
     },
   });
 }
+async function getLeaveRequestsBySuperAdmin(query = {}) {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    status,
+    sort = { createdAt: -1 },
+    employee,
+    lineManager,
+    tenantId,
+  } = query;
+
+  // --- Base match (tenant + optional employee/manager filter) ---
+  const baseMatch = {
+    tenantId: new mongoose.Types.ObjectId(tenantId),
+  };
+
+  if (employee) {
+    baseMatch.employee = new mongoose.Types.ObjectId(employee);
+  }
+
+  if (lineManager) {
+    baseMatch.lineManager = new mongoose.Types.ObjectId(lineManager);
+  }
+
+  if (status && status.toLowerCase() !== "all") {
+    baseMatch.status = status;
+  }
+
+  // --- Count total before any search ---
+  const totalCount = await LeaveHistory.countDocuments(baseMatch);
+
+  // --- Build aggregation pipeline ---
+  const pipeline = [
+    { $match: baseMatch },
+
+    // lookup employee
+    {
+      $lookup: {
+        from: "employees",
+        localField: "employee",
+        foreignField: "_id",
+        as: "employee",
+      },
+    },
+    { $unwind: "$employee" },
+
+    // lookup lineManager
+    {
+      $lookup: {
+        from: "employees",
+        localField: "lineManager",
+        foreignField: "_id",
+        as: "lineManager",
+      },
+    },
+    { $unwind: "$lineManager" },
+  ];
+
+  let searchTokens = [];
+  if (search) {
+    searchTokens = search.split(" ").filter(Boolean); // ["david", "smith"]
+  }
+
+  if (searchTokens.length > 0) {
+    const tokenRegexConditions = searchTokens.map((token) => ({
+      $or: [
+        { description: { $regex: token, $options: "i" } },
+        { status: { $regex: token, $options: "i" } },
+        { "employee.firstname": { $regex: token, $options: "i" } },
+        { "employee.middlename": { $regex: token, $options: "i" } },
+        { "employee.surname": { $regex: token, $options: "i" } },
+        { "lineManager.firstname": { $regex: token, $options: "i" } },
+        { "lineManager.middlename": { $regex: token, $options: "i" } },
+        { "lineManager.surname": { $regex: token, $options: "i" } },
+      ],
+    }));
+
+    pipeline.push({
+      $match: { $and: tokenRegexConditions },
+    });
+  }
+
+  // --- Count filtered results ---
+  const countPipeline = [...pipeline, { $count: "count" }];
+  const countResult = await LeaveHistory.aggregate(countPipeline);
+  const filteredCount = countResult.length > 0 ? countResult[0].count : 0;
+
+  // --- Sorting & Pagination ---
+  pipeline.push({ $sort: sort });
+  pipeline.push({ $skip: (page - 1) * limit });
+  pipeline.push({ $limit: Number(limit) || 10 });
+
+  // --- Execute final query ---
+  const leaveRequests = await LeaveHistory.aggregate(pipeline);
+
+  console.log({ totalCount, filteredCount });
+
+  return ApiSuccess.ok("Leave requests retrieved successfully", {
+    leaveRequests,
+    pagination: {
+      totalCount,
+      filteredCount,
+      totalPages: Math.ceil(filteredCount / limit),
+      page,
+      limit,
+    },
+  });
+}
 
 // Retrieve One Leave Request
 async function getSingleLeaveRequest(leaveId, tenantId) {
@@ -387,6 +496,100 @@ async function updateLeaveRequest(
     } catch (error) {
       console.error(
         "Failed to send first approval email to client admin:",
+        error
+      );
+    }
+  }
+
+  await leaveRequest.save();
+  return ApiSuccess.ok(
+    "Leave request status updated successfully",
+    leaveRequest
+  );
+}
+async function updateLeaveRequestBySuperAdmin(
+  leaveId,
+  leaveRequestData,
+  tenantId
+) {
+  const { status, reason } = leaveRequestData;
+
+  // Find the leave request
+  const leaveRequest = await LeaveHistory.findOne({
+    _id: leaveId,
+    tenantId,
+  }).populate({ path: "employee" });
+
+  // Needed for  while since reliever is now on the leaveRequest
+  leaveRequest.reliever = leaveRequest.employee.reliever;
+
+  if (!leaveRequest) {
+    throw ApiError.badRequest(
+      "No leave request found with the provided leaveId."
+    );
+  }
+
+  if (leaveRequest.approvalCount <= 0) {
+    throw ApiError.badRequest(
+      "This leave request has not been approved by the employee's line manager yet"
+    );
+  }
+
+  // Check if the person trying to update the leave request is the lineManager or an HR admin
+  const employee = await Employee.findById(leaveRequest.employee).populate([
+    {
+      path: "lineManager",
+    },
+    {
+      path: "tenantId",
+    },
+  ]);
+
+  leaveRequest.status = status;
+
+  // If rejected, add leave balance back
+  if (status === "rejected") {
+    const leaveBalance = await EmployeeLeaveBalance.findOne({
+      employeeId: leaveRequest.employee,
+      tenantId: tenantId,
+    });
+
+    leaveBalance.balance += leaveRequest.duration;
+    leaveRequest.rejectionReason = reason;
+    leaveRequest.rejectedBy = leaveRequest.lineManager._id;
+    await leaveBalance.save();
+
+    try {
+      const emailObject = createEmailObject(leaveRequest, employee);
+      await emailUtils.sendClientLeaveRejectionEmail(emailObject);
+    } catch (error) {
+      console.error("Failed to send leave rejection email:", error);
+    }
+  }
+
+  if (status === "approved") {
+    leaveRequest.approvalReason = reason;
+    leaveRequest.approvedBy = leaveRequest.lineManager._id;
+    leaveRequest.approvalCount = 2;
+    // const leaveEmployee = await Employee.findById(leaveRequest.employee._id);
+    // leaveEmployee.isOnLeave = true;
+    // await leaveEmployee.save();
+    const leaveBalance = await EmployeeLeaveBalance.findOne({
+      employeeId: leaveRequest.employee,
+      tenantId: tenantId,
+    });
+
+    leaveRequest.remainingDays = leaveBalance.balance;
+    leaveRequest.balanceBeforeLeave =
+      leaveBalance.balance + leaveRequest.duration;
+
+    try {
+      const emailObject = createEmailObject(leaveRequest, employee);
+      await emailUtils.sendLeaveApprovalEmail(emailObject);
+      await emailUtils.sendLeaveApprovalEmailToLineManager(emailObject);
+    } catch (error) {
+      console.error(
+        "Failed to send second approval email to client admin:",
         error
       );
     }
@@ -856,4 +1059,7 @@ export default {
   getLeaveBalance,
   updateLeaveRequestByClientAdmin,
   getMonthlyLeaveReport,
+  // Super Admin
+  getLeaveRequestsBySuperAdmin,
+  updateLeaveRequestBySuperAdmin,
 };

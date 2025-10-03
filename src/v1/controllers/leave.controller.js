@@ -119,6 +119,21 @@ export const updateLeaveRequestByClientAdmin = asyncWrapper(
   }
 );
 
+export const updateLeaveRequestBySuperAdmin = asyncWrapper(
+  async (req, res, next) => {
+    const { tenantId } = req.tenant;
+    const leaveRequestData = req.body;
+    const { leaveRequestId } = req.params;
+    // const { employeeId } = req.employee;
+    const result = await leaveService.updateLeaveRequestBySuperAdmin(
+      leaveRequestId,
+      leaveRequestData,
+      tenantId
+    );
+    res.status(200).json(result);
+  }
+);
+
 export const deleteLeaveRequest = asyncWrapper(async (req, res, next) => {
   const { tenantId } = req.tenant;
   const { leaveRequestId } = req.params;

@@ -2,6 +2,7 @@ import asyncWrapper from "../../middlewares/asyncWrapper.js";
 import adminService from "../services/admin.service.js";
 import analyticsService from "../services/analytics.service.js";
 import employeeService from "../services/employee.service.js";
+import leaveService from "../services/leave.service.js";
 import tenantService from "../services/tenant.service.js";
 
 export const adminRegister = asyncWrapper(async (req, res, next) => {
@@ -34,6 +35,7 @@ export const adminResetPassword = asyncWrapper(async (req, res, next) => {
   res.status(200).json(result);
 });
 
+// Tenant Management
 export const addTenant = asyncWrapper(async (req, res, next) => {
   const tenantData = req.body;
   const result = await tenantService.addTenant(tenantData, req.files);
@@ -66,3 +68,40 @@ export const getLeaveRequestAnalytics = asyncWrapper(async (req, res, next) => {
   );
   res.status(200).json(result);
 });
+
+//Leave Management
+export const getLeaveRequestsBySuperAdmin = asyncWrapper(
+  async (req, res, next) => {
+    const { tenantId } = req.query;
+    const query = req.query;
+    const result = await leaveService.getLeaveRequestsBySuperAdmin(query);
+    res.status(200).json(result);
+  }
+);
+
+export const updateLeaveRequestBySuperAdmin = asyncWrapper(
+  async (req, res, next) => {
+    const { tenantId } = req.query;
+    const leaveRequestData = req.body;
+    const { leaveRequestId } = req.params;
+    // const { employeeId } = req.employee;
+    const result = await leaveService.updateLeaveRequestBySuperAdmin(
+      leaveRequestId,
+      leaveRequestData,
+      tenantId
+    );
+    res.status(200).json(result);
+  }
+);
+
+export const getSingleLeaveRequestBySuperAdmin = asyncWrapper(
+  async (req, res, next) => {
+    const { tenantId } = req.tenant;
+    const { leaveRequestId } = req.params;
+    const result = await leaveService.getSingleLeaveRequest(
+      leaveRequestId,
+      tenantId
+    );
+    res.status(200).json(result);
+  }
+);

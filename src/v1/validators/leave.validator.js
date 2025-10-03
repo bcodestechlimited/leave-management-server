@@ -188,3 +188,25 @@ export const leaveRequestUpdateByClientValidator = [
 
   handleValidationErrors,
 ];
+
+export const leaveRequestUpdateBySuperAdminValidator = [
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(["approved", "rejected"])
+    .withMessage("Status must be one of: approved, rejected"),
+
+  body("reason")
+    .if((value, { req }) => {
+      if (req.body.status === "rejected") {
+        throw ApiError.unprocessableEntity("Please provide a reason");
+      }
+      return true;
+    }) // Only validate if status is "rejected"
+    .exists()
+    .withMessage("Reason is required when status is rejected")
+    .isString()
+    .withMessage("Reason must be a string"),
+
+  handleValidationErrors,
+];

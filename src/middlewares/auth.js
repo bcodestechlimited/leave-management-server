@@ -34,7 +34,7 @@ const isAuth = asyncWrapper(async (req, res, next) => {
 
 //Checks if the user/employee is an admin
 const isSuperAdmin = asyncWrapper(async (req, res, next) => {
-  if (!req?.user.isSuperAdmin) {
+  if (!req?.user?.isSuperAdmin) {
     throw ApiError.unauthorized("Super Admins Only");
   }
   next();
@@ -42,7 +42,7 @@ const isSuperAdmin = asyncWrapper(async (req, res, next) => {
 
 //Checks if the user/employee is an admin
 const isAdmin = asyncWrapper(async (req, res, next) => {
-  if (!req?.user.isAdmin) {
+  if (!req?.user?.isAdmin) {
     throw ApiError.unauthorized("Employee Admins Only");
   }
   next();
