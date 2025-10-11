@@ -17,6 +17,12 @@ export const adminLogin = asyncWrapper(async (req, res, next) => {
   res.status(200).json(result);
 });
 
+export const adminLoginAsEmployee = asyncWrapper(async (req, res, next) => {
+  const userData = req.body;
+  const result = await adminService.adminLoginAsEmployee(userData);
+  res.status(200).json(result);
+});
+
 export const getAdmin = asyncWrapper(async (req, res, next) => {
   const { userId } = req.user;
   const result = await adminService.getAdmin(userId);

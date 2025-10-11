@@ -4,6 +4,7 @@ import {
   addTenant,
   adminForgotPassword,
   adminLogin,
+  adminLoginAsEmployee,
   adminRegister,
   adminResetPassword,
   getAdmin,
@@ -37,6 +38,11 @@ router
 router
   .route("/auth/login")
   .post(adminLogInValidator, adminLogin)
+  .all(methodNotAllowed);
+
+router
+  .route("/auth/login/employee")
+  .post(adminLogInValidator, adminLoginAsEmployee)
   .all(methodNotAllowed);
 
 router.route("/auth").get(isAuth, isSuperAdmin, getAdmin).all(methodNotAllowed);

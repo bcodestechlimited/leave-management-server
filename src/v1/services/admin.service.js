@@ -5,6 +5,8 @@ import ApiError from "../../utils/apiError.js";
 import { hashPassword, validatePassword } from "../../utils/validationUtils.js";
 import ApiSuccess from "../../utils/apiSuccess.js";
 import OTP from "../models/otp.model.js";
+import Employee from "../models/employee.model.js";
+import e from "express";
 
 async function findUserByEmail(email) {
   const user = await User.findOne({ email, roles: { $in: ["admin"] } });
@@ -54,7 +56,7 @@ async function adminLogin(userData = {}) {
   if (!user.isEmailVerified) {
     throw ApiError.forbidden("Email Not Verified");
   }
-  
+
   user.password = undefined;
 
   const token = generateToken({
@@ -65,6 +67,47 @@ async function adminLogin(userData = {}) {
 
   return ApiSuccess.ok("Login Successful", {
     user,
+    token,
+  });
+}
+async function adminLoginAsEmployee(userData = {}) {
+  const { email, password, employeeEmail } = userData;
+
+  const user = await User.findOne({ email: email }).select("+password");
+  if (!user) {
+    throw ApiError.notFound("User with this email does not exist");
+  }
+
+  await validatePassword(password, user.password);
+
+  if (!user.isEmailVerified) {
+    throw ApiError.forbidden("Email Not Verified");
+  }
+
+  const employee = await Employee.findOne({ email: employeeEmail }).select(
+    "+password"
+  );
+
+  if (!employee) {
+    throw ApiError.badRequest("No employee with this email");
+  }
+
+  if (!employee.isEmailVerified) {
+    throw ApiError.badRequest("Employee email has not been verified");
+  }
+
+  const token = generateToken({
+    employeeId: employee._id,
+    isAdmin: employee.isAdmin,
+    isEmployee: true,
+    roles: employee.isAdmin ? ["admin", "employee"] : ["employee"],
+  });
+
+  user.password = undefined;
+  employee.password = undefined;
+
+  return ApiSuccess.ok("Login Successful", {
+    employee,
     token,
   });
 }
@@ -117,4 +160,5 @@ export default {
   getAdmin,
   adminForgotPassword,
   adminResetPassword,
+  adminLoginAsEmployee,
 };
