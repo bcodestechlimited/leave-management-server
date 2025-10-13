@@ -430,10 +430,12 @@ async function updateLeaveRequest(
   const leaveRequest = await LeaveHistory.findOne({
     _id: leaveId,
     tenantId,
-  }).populate({ path: "employee" });
+  }).populate([{ path: "employee" }]);
 
-  // Needed for  while since reliever is now on the leaveRequest
-  leaveRequest.reliever = leaveRequest.employee.reliever;
+  // Needed for while since reliever is now on the leaveRequest
+  if (!leaveRequest.reliever) {
+    leaveRequest.reliever = leaveRequest.employee.reliever;
+  }
 
   if (!leaveRequest) {
     throw ApiError.badRequest(
