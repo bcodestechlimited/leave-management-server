@@ -19,6 +19,7 @@ const leaveTypeSchema = new mongoose.Schema(
       required: true,
     },
     defaultBalance: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

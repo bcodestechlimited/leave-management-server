@@ -156,18 +156,33 @@ employeeSchema.methods.getLeaveBalances = async function (
     ]);
 
     return (
-      leaveBalances?.filter(
-        (leaveBalance) =>
-          (this.gender === "female" &&
-            !leaveBalance.leaveTypeDetails.name
-              .toLowerCase()
-              .includes("paternity")) ||
-          (this.gender === "male" &&
-            !leaveBalance.leaveTypeDetails.name
-              .toLowerCase()
-              .includes("maternity"))
-      ) || []
+      leaveBalances?.filter((leaveBalance) => {
+        const name = leaveBalance.leaveTypeDetails.name.toLowerCase();
+
+        // Exclude based on gender and universally exclude exam leaves
+        if (name.includes("exam")) return false;
+
+        if (this.gender === "female" && name.includes("paternity"))
+          return false;
+        if (this.gender === "male" && name.includes("maternity")) return false;
+
+        return true;
+      }) || []
     );
+
+    // return (
+    //   leaveBalances?.filter(
+    //     (leaveBalance) =>
+    //       (this.gender === "female" &&
+    //         !leaveBalance.leaveTypeDetails.name
+    //           .toLowerCase()
+    //           .includes("paternity")) ||
+    //       (this.gender === "male" &&
+    //         !leaveBalance.leaveTypeDetails.name
+    //           .toLowerCase()
+    //           .includes("maternity"))
+    //   ) || []
+    // );
   } catch (error) {
     throw error;
   }
