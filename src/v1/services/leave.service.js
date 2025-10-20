@@ -616,6 +616,8 @@ async function updateLeaveRequestByClientAdmin(
     tenantId,
   }).populate({ path: "employee" });
 
+  // console.log({ leaveRequest });
+
   // Needed for  while since reliever is now on the leaveRequest
   leaveRequest.reliever = leaveRequest.employee.reliever;
 
@@ -628,6 +630,12 @@ async function updateLeaveRequestByClientAdmin(
   if (leaveRequest.approvalCount <= 0) {
     throw ApiError.badRequest(
       "This leave request has not been approved by the employee's line manager yet"
+    );
+  }
+
+  if (!leaveRequest.reliever || !leaveRequest.employee.reliever) {
+    throw ApiError.badRequest(
+      "Please inform the employee to re-update their reliever first"
     );
   }
 
