@@ -52,41 +52,162 @@ async function signIn(employeeData = {}) {
   });
 }
 
-async function sendInviteToEmployee(InviteData = {}, tenantId) {
+// async function sendInviteToEmployee(InviteData = {}, tenantId) {
+//   const { email, expiresIn } = InviteData;
+
+//   const employee = await Employee.findOne({ email, tenantId });
+//   if (employee) {
+//     throw ApiError.badRequest("Employee with this email already exists");
+//   }
+
+//   const existingLink = await Link.findOne({ email });
+
+//   if (existingLink) {
+//     throw ApiError.badRequest("There is an existing link for this employee");
+//   }
+
+//   const { data } = await tenantService.getTenant(tenantId);
+//   const tenant = data?.tenant;
+
+//   const expiresAt = new Date();
+//   expiresAt.setDate(expiresAt.getDate() + expiresIn);
+
+//   const token = crypto.randomBytes(20).toString("hex");
+//   const plainPassword = crypto.randomBytes(8).toString("hex"); // 8 characters
+//   const hashedPassword = await hashPassword(plainPassword);
+
+//   // Create a new employee
+//   const newEmployee = await Employee.create({
+//     email,
+//     tenantId,
+//     password: hashedPassword,
+//   });
+
+//   const inviteUrl = `${process.env.FRONTEND_URL}/${tenant._id}/verify?token=${token}`;
+
+//   // Create a new link document in the database
+//   const link = await Link.create({
+//     tenantId,
+//     token,
+//     email,
+//     url: inviteUrl,
+//     expiresAt,
+//     status: "pending",
+//   });
+
+//   const mailOptions = {
+//     from: process.env.ADMIN_EMAIL,
+//     to: email,
+//     subject: `Invite to ${tenant.name} Leave Board`,
+//     text: `Hello, you have been invited to join ${tenant.name} leave board. Your temporary password is: ${plainPassword}. Click on the following link to accept the invite and complete your registration: ${inviteUrl}`,
+//     html: `
+//       <p>Hello,</p>
+//       <p>You have been invited to join <strong>${tenant.name}</strong> leave board.</p>
+//       <p>Your temporary password is: <strong>${plainPassword}</strong></p>
+//       <p>Click on the following link to accept the invite and login in </p>
+//       <a href="${inviteUrl}">Go To Leave Board</a>
+//     `,
+//   };
+
+//   try {
+//     const emailInfo = await emailUtils.sendEmail(mailOptions);
+//     await Link.findByIdAndUpdate(link._id, { isDelivered: true });
+//   } catch {
+//     await Link.findByIdAndUpdate(link._id, { isDelivered: false });
+//   }
+
+//   return ApiSuccess.ok(`Invite Link Sent To ${email}`);
+// }
+
+export async function sendInviteToEmployee(InviteData = {}, tenantId) {
   const { email, expiresIn } = InviteData;
 
-  const employee = await Employee.findOne({ email, tenantId });
-  if (employee) {
-    throw ApiError.badRequest("Employee with this email already exists");
-  }
-
-  const existingLink = await Link.findOne({ email });
-
-  if (existingLink) {
-    throw ApiError.badRequest("There is an existing link for this employee");
+  if (!email || !tenantId) {
+    throw ApiError.badRequest("Email and tenantId are required");
   }
 
   const { data } = await tenantService.getTenant(tenantId);
   const tenant = data?.tenant;
+  if (!tenant) throw ApiError.notFound("Tenant not found");
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expiresIn);
 
-  const token = crypto.randomBytes(20).toString("hex");
-  const plainPassword = crypto.randomBytes(8).toString("hex"); // 8 characters
-  const hashedPassword = await hashPassword(plainPassword);
-
-  // Create a new employee
-  const newEmployee = await Employee.create({
-    email,
-    tenantId,
-    password: hashedPassword,
+  // 🔹 Find employee and existing link
+  let employee = await Employee.findOne({ email, tenantId });
+  const existingLink = await Link.findOne({ email, tenantId }).sort({
+    createdAt: -1,
   });
 
-  const inviteUrl = `${process.env.FRONTEND_URL}/${tenant._id}/verify?token=${token}`;
+  // 🧭 If employee exists and link already accepted → do nothing
+  if (existingLink && existingLink.status === "accepted") {
+    return ApiSuccess.ok(
+      `Invite already accepted for ${email}. No action taken.`
+    );
+  }
 
-  // Create a new link document in the database
-  const link = await Link.create({
+  // Helper: Generate password and hash
+  const generatePassword = async () => {
+    const plain = crypto.randomBytes(8).toString("hex");
+    const hash = await hashPassword(plain);
+    return { plain, hash };
+  };
+
+  let token, inviteUrl, plainPassword;
+
+  // 🧩 CASE 1: No employee exists → create employee & new link
+  if (!employee) {
+    const { plain, hash } = await generatePassword();
+    plainPassword = plain;
+
+    employee = await Employee.create({
+      email,
+      tenantId,
+      password: hash,
+    });
+
+    token = crypto.randomBytes(20).toString("hex");
+    inviteUrl = `${process.env.FRONTEND_URL}/${tenant._id}/verify?token=${token}`;
+
+    await Link.create({
+      tenantId,
+      token,
+      email,
+      url: inviteUrl,
+      expiresAt,
+      status: "pending",
+    });
+
+    await sendInviteEmail(email, plainPassword, tenant.name, inviteUrl, token);
+    return ApiSuccess.ok(`Invite link sent to ${email}`);
+  }
+
+  // 🧩 CASE 2: Employee exists and has active link → reuse link, generate new password
+  if (existingLink && existingLink.expiresAt > new Date()) {
+    const { plain, hash } = await generatePassword();
+    plainPassword = plain;
+
+    await Employee.findByIdAndUpdate(employee._id, { password: hash });
+
+    token = existingLink.token;
+    inviteUrl = existingLink.url;
+
+    await sendInviteEmail(email, plainPassword, tenant.name, inviteUrl, token);
+    return ApiSuccess.ok(
+      `New password sent using active invite link for ${email}`
+    );
+  }
+
+  // 🧩 CASE 3: Employee exists but no active link → create new link + new password
+  const { plain, hash } = await generatePassword();
+  plainPassword = plain;
+
+  await Employee.findByIdAndUpdate(employee._id, { password: hash });
+
+  token = crypto.randomBytes(20).toString("hex");
+  inviteUrl = `${process.env.FRONTEND_URL}/${tenant._id}/verify?token=${token}`;
+
+  await Link.create({
     tenantId,
     token,
     email,
@@ -95,28 +216,8 @@ async function sendInviteToEmployee(InviteData = {}, tenantId) {
     status: "pending",
   });
 
-  const mailOptions = {
-    from: process.env.ADMIN_EMAIL,
-    to: email,
-    subject: `Invite to ${tenant.name} Leave Board`,
-    text: `Hello, you have been invited to join ${tenant.name} leave board. Your temporary password is: ${plainPassword}. Click on the following link to accept the invite and complete your registration: ${inviteUrl}`,
-    html: `
-      <p>Hello,</p>
-      <p>You have been invited to join <strong>${tenant.name}</strong> leave board.</p>
-      <p>Your temporary password is: <strong>${plainPassword}</strong></p>
-      <p>Click on the following link to accept the invite and login in </p>
-      <a href="${inviteUrl}">Go To Leave Board</a>
-    `,
-  };
-
-  try {
-    const emailInfo = await emailUtils.sendEmail(mailOptions);
-    await Link.findByIdAndUpdate(link._id, { isDelivered: true });
-  } catch {
-    await Link.findByIdAndUpdate(link._id, { isDelivered: false });
-  }
-
-  return ApiSuccess.ok(`Invite Link Sent To ${email}`);
+  await sendInviteEmail(email, plainPassword, tenant.name, inviteUrl, token);
+  return ApiSuccess.ok(`New invite link sent to ${email}`);
 }
 
 async function acceptInvite(token, tenantId) {
@@ -134,6 +235,8 @@ async function acceptInvite(token, tenantId) {
   }
 
   if (new Date() > new Date(link.expiresAt)) {
+    link.status = "expired";
+    await link.save();
     throw ApiError.badRequest("Invite link has expired");
   }
 
@@ -650,6 +753,31 @@ async function deleteLineManager(employeeId, tenantId) {
   return ApiSuccess.ok(
     "Employee deleted successfully and removed as Line Manager/Reliever from others"
   );
+}
+
+// Helpers
+
+async function sendInviteEmail(email, password, tenantName, inviteUrl, token) {
+  const mailOptions = {
+    from: process.env.ADMIN_EMAIL,
+    to: email,
+    subject: `Invite to ${tenantName} Leave Board`,
+    text: `Hello, you have been invited to join ${tenantName} leave board. Your temporary password is: ${password}. Click the link to complete registration: ${inviteUrl}`,
+    html: `
+      <p>Hello,</p>
+      <p>You have been invited to join <strong>${tenantName}</strong> leave board.</p>
+      <p>Your temporary password is: <strong>${password}</strong></p>
+      <p>Click the link below to complete your registration:</p>
+      <a href="${inviteUrl}">Go To Leave Board</a>
+    `,
+  };
+
+  try {
+    await emailUtils.sendEmail(mailOptions);
+    await Link.findOneAndUpdate({ token }, { isDelivered: true });
+  } catch {
+    await Link.findOneAndUpdate({ token }, { isDelivered: false });
+  }
 }
 
 export default {
