@@ -13,7 +13,7 @@
     "fix": "node src/scripts/fix.js",
     "stale": "node src/scripts/stale.js",
     "fetch": "node src/scripts/fetchEmployees.js",
-    "copy": "node src/scripts/copyDB.js",
+    "scripts:copy-db": "node src/scripts/copyDB.js",
     "scripts:rejectleave": "node src/scripts/rejectLeave.js"
   },
   "author": "",

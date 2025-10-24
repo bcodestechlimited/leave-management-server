@@ -7,52 +7,53 @@ async function copyDatabase() {
 
   try {
     await client.connect();
-    console.log("Connected to MongoDB");
+    console.log("✅ Connected to MongoDB");
 
     const adminDb = client.db().admin();
-
-    // List all databases
     const { databases } = await adminDb.listDatabases();
     const dbNames = databases.map((db) => db.name);
 
     if (!dbNames.includes("LeaveMS-Live")) {
-      console.log("Database LeaveMS-Live not found.");
+      console.log("❌ Database LeaveMS-Live not found.");
       return;
     }
 
-    console.log("LeaveMS-Live found. Copying data...");
+    console.log("📦 Found LeaveMS-Live. Copying data to LeaveMS...");
 
     const sourceDb = client.db("LeaveMS-Live");
     const targetDb = client.db("LeaveMS");
 
-    // List collections in source database
     const collections = await sourceDb.listCollections().toArray();
 
-    for (const collection of collections) {
-      const collectionName = collection.name;
+    for (const { name: collectionName } of collections) {
       const sourceCollection = sourceDb.collection(collectionName);
       const targetCollection = targetDb.collection(collectionName);
 
-      // Fetch all documents
+      // Drop the target collection to avoid _id conflicts
+      await targetCollection.drop().catch(() => {});
+      console.log(`🧹 Dropped target collection: ${collectionName}`);
+
       const documents = await sourceCollection.find().toArray();
 
       if (documents.length > 0) {
-        // Insert into target collection
-        await targetCollection.insertMany(documents);
-        console.log(
-          `Copied ${documents.length} documents into ${collectionName}`
-        );
+        const chunkSize = 1000;
+        for (let i = 0; i < documents.length; i += chunkSize) {
+          const chunk = documents.slice(i, i + chunkSize);
+          await targetCollection.insertMany(chunk, { ordered: false });
+        }
+
+        console.log(`✅ Copied ${documents.length} documents into ${collectionName}`);
       } else {
-        console.log(`No documents found in ${collectionName}`);
+        console.log(`⚠️ No documents found in ${collectionName}`);
       }
     }
 
-    console.log("Database copy completed.");
+    console.log("🎉 Database copy completed successfully (IDs preserved).");
   } catch (error) {
-    console.error("Error copying database:", error);
+    console.error("❌ Error copying database:", error);
   } finally {
     await client.close();
-    console.log("MongoDB connection closed.");
+    console.log("🔒 MongoDB connection closed.");
   }
 }
 
