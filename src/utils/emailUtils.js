@@ -46,7 +46,7 @@ async function sendEmail({ from, to, subject, text, html }) {
   try {
     const mailOptions = {
       from: from || defaultSender,
-      to,
+      to: process.env.NODE_ENV !== "development" ? to : defaultSender,
       subject,
       text,
       html,
