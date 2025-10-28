@@ -44,8 +44,10 @@ const defaultSender = process.env.ADMIN_EMAIL;
 
 async function sendEmail({ from, to, subject, text, html }) {
   try {
+    const senderEmail = from || defaultSender;
     const mailOptions = {
-      from: from || defaultSender,
+      // from: from || defaultSender,
+      from: `"HRCore - Leave Board" <${senderEmail}>`,
       to,
       subject,
       text,
