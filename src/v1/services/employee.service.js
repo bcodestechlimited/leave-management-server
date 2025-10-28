@@ -683,7 +683,7 @@ async function addLineManager(payload = {}, tenantId) {
 
   const employee = await Employee.findOne({ email, tenantId });
   if (employee) {
-    throw ApiError.badRequest("Employee with this email already exists");
+    throw ApiError.conflict("Employee with this email already exists");
   }
 
   const { data } = await tenantService.getTenant(tenantId);

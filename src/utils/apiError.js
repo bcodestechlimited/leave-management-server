@@ -27,6 +27,10 @@ class ApiError extends Error {
     return new ApiError(405, message);
   }
 
+  static conflict(message) {
+    return new ApiError(409, message);
+  }
+
   static unprocessableEntity(message) {
     return new ApiError(422, message);
   }
